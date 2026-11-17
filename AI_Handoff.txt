@@ -12,9 +12,10 @@ Launch instructions
 4. If the page does not load, make sure the local server is still running and that the browser is pointed to the correct URL.
 
 High-school player career
-- On a new Player career, the native details screen is used for player creation before the season; Coach selection is unchanged.
+- On a new Player career, the native details screen is used for player creation before the season. Coach now opens FullGame directly.
 - School, QB/RB position, and 1-to-3-star rating controls are integrated into the native character-details screen.
 - The Player home screen replaces the college division panel with a custom season summary and opens a native high-school schedule popup; the stock League screen is not shown during the high-school season.
+- Coach starts directly in FullGame. Its 105-player roster uses position-weighted depth targets and ten reusable on-screen player cards with page controls for browsing, benching, and substitutions.
 - Player careers start at the beginning of the season and play six real on-field matches, skipping any bye weeks while advancing the schedule. School identity and uniform colors are customized for the matches, and the introductory tutorial is skipped.
 - After the sixth match, the native recruiting popup presents two college offers and the college-entry rating. The offer selected determines the recruited rating and college attributes.
 - Offer choices show the college-entry rating after a tiered star reduction based on the high-school rating. The chosen value sets the created player's initial college attributes.

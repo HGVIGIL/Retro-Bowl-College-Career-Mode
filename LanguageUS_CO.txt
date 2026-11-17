@@ -2,7 +2,7 @@ ui_Version_Mode	College
 
 btn_CareerPlayer	Player
 btn_CareerCoach	Coach
-msg_Welcome_Career	Welcome to Retro Bowl College Career Mode!##Choose Player to create your character, set your name and appearance, and take control on game day.##Choose Coach to create your coach, lead a college team, and chase a championship.##Your choice is saved in this slot. Start your Road to Glory!
+msg_Welcome_Career	Welcome to Retro Bowl College Career Mode!##Choose Player to create your character, set your name and appearance, and take control on game day.##Choose Coach to manage a full 40-player roster with benching, injuries, and live substitutions.##Your choice is saved in this slot. Start your Road to Glory!
 
 
 
@@ -1020,6 +1020,8 @@ ui_Starting	Starting
 msg_SalaryCheckAmount	You need to spend the Scholarship Fund on recruiting new players until there is $$num,000 or less in the Fund before you can reduce the upper limit.
 
 msg_Bench	Do you want to bench $pos $playername until further notice?##Benched players will rest until you reinstate them, recovering condition and increasing GPA. If you have a back-up player in this position he will play while the starter is benched.
+ui_Unbench	Unbench
+msg_FullGameLastPosition	You must keep at least one active player at this position.
 
 msg_PreSeasonRankings	Awaiting Pre-Season Poll Results
 

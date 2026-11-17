@@ -634,8 +634,10 @@ ui_Resting	Resting
 msg_Rest	Do you want to rest $pos $playername for the next game?
 ui_Bench	Bench
 ui_Benched	Benched
+ui_Unbench	Unbench
 ui_BenchPlayer	Bench Player
 msg_Bench	Do you want to bench $pos $playername until further notice?##Benched players will rest until you reinstate them. If you have a back-up player in this position he will play while the starter is benched.
+msg_FullGameLastPosition	You must keep at least one active player at this position.
 ui_RestPlayer	Rest Player
 msg_RosterLimit	You have reached the roster limit. You will need to cut players before you can sign new ones.
 ui_Heads	Heads
@@ -777,6 +779,13 @@ ui_BuyCredits	Buy Credits
 info_freeagents	Players in free agency are available to sign for any team. However, persuading them to join your team will require coaching credits and salary cap space. The quality of the available players depletes over the course of a season.
 ui_Done	Done
 ui_Close	Close
+ui_Sub	Sub
+ui_Substitute	Substitute
+ui_Reserves	Reserves
+ui_Scroll	Scroll
+msg_SubstitutePlayer	Choose a position to bring on a healthy reserve.
+msg_NoHealthyReserves	No healthy reserves are available.
+msg_ChooseReserve	Choose a healthy reserve to replace the current player.
 btn_RestorePurchases	Restore#Purchases
 ui_Connecting	Connecting...
 ui_FavouriteTeam	Favorite Team
@@ -784,7 +793,7 @@ msg_Welcome_CO	Welcome to Retro Bowl College!##You are about to start your first
 
 btn_CareerPlayer	Player
 btn_CareerCoach	Coach
-msg_Welcome_Career	Welcome to Retro Bowl College Career Mode!##Choose Player to create your character, set your name and appearance, and take control on game day.##Choose Coach to create your coach, lead a college team, and chase a championship.##Your choice is saved in this slot. Start your Road to Glory!
+msg_Welcome_Career	Welcome to Retro Bowl College Career Mode!##Choose Player to create your character, set your name and appearance, and take control on game day.##Choose Coach to manage a full 40-player roster with benching, injuries, and live substitutions.##Your choice is saved in this slot. Start your Road to Glory!
 
 msg_Welcome	Welcome to Retro Bowl!##You are about to start your first season as the head coach of a pro football team.##The path to success is an arduous one but if you believe in yourself and can inspire your team then glory awaits!#
 msg_LimitedVersion	*** Limited Version - $num games remaining ***

@@ -14005,7 +14005,7 @@ var JSON_game = {
     { pName: "obj_tag_kr", spriteIndex: 378, visible: true, parent: 37, DrawGUI: gml_Object_obj_tag_kr_Draw_64, PreCreateEvent: gml_Object_obj_tag_kr_PreCreate_0, TriggerEvents: [], CollisionEvents: [] },
     { pName: "obj_meeting_player", spriteIndex: -1, visible: true, parent: -100, CreateEvent: gml_Object_obj_meeting_player_Create_0, PreCreateEvent: gml_Object_obj_meeting_player_PreCreate_0, TriggerEvents: [], CollisionEvents: [] },
     { pName: "obj_staffprofile", spriteIndex: -1, visible: true, parent: -100, CreateEvent: gml_Object_obj_staffprofile_Create_0, StepNormalEvent: gml_Object_obj_staffprofile_Step_0, DrawGUI: gml_Object_obj_staffprofile_Draw_64, KeyPressed_X: gml_Object_obj_staffprofile_KeyPress_88, KeyPressed_Z: gml_Object_obj_staffprofile_KeyPress_90, TriggerEvents: [], CollisionEvents: [] },
-    { pName: "obj_roster", spriteIndex: -1, visible: true, parent: -100, CreateEvent: gml_Object_obj_roster_Create_0, PreCreateEvent: gml_Object_obj_roster_PreCreate_0, TriggerEvents: [], CollisionEvents: [] },
+    { pName: "obj_roster", spriteIndex: -1, visible: true, parent: -100, CreateEvent: gml_Object_obj_roster_Create_0, StepNormalEvent: gml_Object_obj_roster_Step_0, PreCreateEvent: gml_Object_obj_roster_PreCreate_0, TriggerEvents: [], CollisionEvents: [] },
     { pName: "obj_winners", spriteIndex: -1, visible: true, parent: -100, CreateEvent: gml_Object_obj_winners_Create_0, ObjAlarm0: gml_Object_obj_winners_Alarm_0, DrawEvent: gml_Object_obj_winners_Draw_0, PreCreateEvent: gml_Object_obj_winners_PreCreate_0, TriggerEvents: [], CollisionEvents: [] },
     { pName: "obj_draft", spriteIndex: -1, visible: true, parent: -100, CreateEvent: gml_Object_obj_draft_Create_0, PreCreateEvent: gml_Object_obj_draft_PreCreate_0, TriggerEvents: [], CollisionEvents: [] },
     { pName: "obj_freeagents", spriteIndex: -1, visible: true, parent: -100, CreateEvent: gml_Object_obj_freeagents_Create_0, PreCreateEvent: gml_Object_obj_freeagents_PreCreate_0, TriggerEvents: [], CollisionEvents: [] },
@@ -18126,7 +18126,255 @@ function gml_Script_poki_init(_inst, _other) {
       gml_Script_gmcallback_poki_closure(_inst, _other, 0, 0, 0);
     }
   }
-} // /// @description  (then:script[ok; custom], custom)
+}
+    function gml_Script_s_fullgame_update_sub_button(_inst, _other) {
+      if (!variable_instance_exists(_inst.id, "gmlfullgame_sub_button")) {
+        _inst.gmlfullgame_sub_button = -4;
+      }
+      var state = yyInst(_inst, _other, YYASSET_REF(0x00000062));
+      if (!variable_instance_exists(state.id, "gmlfullgame_submenu_open")) {
+        state.gmlfullgame_submenu_open = false;
+      }
+      if (!yyGetBool(state.gmlfullgame_mode) || !yyfequal(g_pBuiltIn.get_current_room(), YYASSET_REF(0x03000011)) || !yyfequal(state.gmlstage, 4)) {
+        if (instance_exists(_inst.gmlfullgame_sub_button)) {
+          instance_destroy(_inst, _inst.gmlfullgame_sub_button);
+        }
+        _inst.gmlfullgame_sub_button = -4;
+        return;
+      }
+      if (!instance_exists(_inst.gmlfullgame_sub_button)) {
+        _inst.gmlfullgame_sub_button = instance_create_layer(425, 42, "PopUps", YYASSET_REF(0x0000002a));
+        var button = yyInst(_inst, _other, _inst.gmlfullgame_sub_button);
+        button.gmltext = gml_Script_s_str(_inst, _other, "ui_Sub");
+        button.gmlonClickAction = gml_Script_s_fullgame_open_subs;
+        button.gmlgp_allowed = 1;
+        button.gmlalpha = 1;
+        button.gmlcolour = make_color_rgb(24, 106, 180);
+        button.gmlcolour_text = make_color_rgb(248, 246, 238);
+        button.depth = -100000;
+      }
+      var sub_button = yyInst(_inst, _other, _inst.gmlfullgame_sub_button);
+      sub_button.visible = !yyGetBool(state.gmlfullgame_submenu_open);
+      sub_button.gmlactive = sub_button.visible;
+      sub_button.gmlalpha = 1;
+      sub_button.depth = -100000;
+      sub_button.gmlcolour = make_color_rgb(24, 106, 180);
+      sub_button.gmlcolour_text = make_color_rgb(248, 246, 238);
+    }
+    function gml_Script_s_fullgame_find_substitute(_inst, _other, argument0) {
+      var state = yyInst(_inst, _other, YYASSET_REF(0x00000062));
+      var starter = -4;
+      var reserve = -4;
+      for (var i = 0; i < ds_list_size(state.gmlroster); i++) {
+        var player = ds_list_find_value(state.gmlroster, i);
+        if (!yyfequal(ds_map_find_value(player, "position"), argument0) || yyfless(ds_map_find_value(player, "condition"), 0) || yyGetBool(gml_Script_s_player_benched(state, _other, player))) {
+          continue;
+        }
+        if (yyGetBool(ds_map_find_value(player, "backup"))) {
+          if (yyfequal(reserve, -4)) {
+            reserve = player;
+          }
+        } else if (yyfequal(starter, -4)) {
+          starter = player;
+        }
+      }
+      return { starter: starter, reserve: reserve };
+    }
+    function gml_Script_s_fullgame_collect_sub_positions(_inst, _other, state) {
+      var choices = {};
+      for (var position = 1; position <= 10; position++) {
+        choices[position] = { starter: -4, reserve: -4 };
+      }
+      for (var i = 0; i < ds_list_size(state.gmlroster); i++) {
+        var player = ds_list_find_value(state.gmlroster, i);
+        var position = real(ds_map_find_value(player, "position"));
+        var position_choices = choices[position];
+        if (!position_choices || yyfless(ds_map_find_value(player, "condition"), 0) ||
+            yyGetBool(gml_Script_s_player_benched(state, _other, player))) {
+          continue;
+        }
+        if (yyGetBool(ds_map_find_value(player, "backup"))) {
+          if (yyfequal(position_choices.reserve, -4)) {
+            position_choices.reserve = player;
+          }
+        } else if (yyfequal(position_choices.starter, -4)) {
+          position_choices.starter = player;
+        }
+      }
+      return choices;
+    }
+    function gml_Script_s_fullgame_get_substitutes(_inst, _other, position) {
+      var state = yyInst(_inst, _other, YYASSET_REF(0x00000062));
+      var reserves = [];
+      for (var i = 0; i < ds_list_size(state.gmlroster); i++) {
+        var player = ds_list_find_value(state.gmlroster, i);
+        if (!yyfequal(ds_map_find_value(player, "position"), position) ||
+            yyfless(ds_map_find_value(player, "condition"), 0) ||
+            !yyGetBool(ds_map_find_value(player, "backup")) ||
+            yyGetBool(gml_Script_s_player_benched(state, _other, player))) {
+          continue;
+        }
+        reserves.push(player);
+      }
+      return reserves.slice(0, 2);
+    }
+    function gml_Script_s_fullgame_show_sub_positions(_inst, _other, state) {
+      state.gmlfullgame_sub_buttons = [];
+      var positions = ["QB", "RB", "TE", "WR", "OL", "DL", "LB", "CB", "S", "K"];
+      var choices_by_position = gml_Script_s_fullgame_collect_sub_positions(_inst, _other, state);
+      var eligible = 0;
+      for (var position = 1; position <= 10; position++) {
+        var choices = choices_by_position[position];
+        if (yyfequal(choices.starter, -4) || yyfequal(choices.reserve, -4)) {
+          continue;
+        }
+        var button_id = instance_create_layer(120 + (eligible >= 5 ? 240 : 0), 64 + (eligible % 5) * 32, "PopUps", YYASSET_REF(0x00000023));
+        var button = yyInst(_inst, _other, button_id);
+        button.gmltext = positions[position - 1];
+        button.gmlsub_position = position;
+        button.gmlonClickAction = gml_Script_s_fullgame_substitute;
+        button.gmlgp_allowed = 1;
+        state.gmlfullgame_sub_buttons.push(button_id);
+        eligible++;
+      }
+      var popup = yyInst(_inst, _other, state.gmlfullgame_sub_message);
+      yyInst(_inst, _other, popup.gmlinst_msg).gmltext = eligible > 0 ?
+        gml_Script_s_str(_inst, _other, "msg_SubstitutePlayer") :
+        gml_Script_s_str(_inst, _other, "msg_NoHealthyReserves");
+      for (var i = 0; i < state.gmlfullgame_sub_buttons.length; i++) {
+        var button_id = state.gmlfullgame_sub_buttons[i];
+        if (instance_exists(button_id)) {
+          yyInst(_inst, _other, button_id).depth = popup.depth - 1;
+        }
+      }
+    }
+    function gml_Script_s_fullgame_open_subs(_inst, _other) {
+      var state = yyInst(_inst, _other, YYASSET_REF(0x00000062));
+      if (yyGetBool(state.gmlfullgame_submenu_open)) {
+        return;
+      }
+      state.gmlfullgame_submenu_open = true;
+      gml_Script_s_tag_backups_internal(state, _other, state.gmlroster);
+      var message = gml_Script_s_create_message(
+        _inst,
+        _other,
+        gml_Script_s_str(_inst, _other, "ui_Substitute"),
+        gml_Script_s_str(_inst, _other, "msg_SubstitutePlayer"),
+        gml_Script_s_str(_inst, _other, "ui_Close"),
+        "",
+        gml_Script_s_fullgame_close_subs,
+        "",
+        global.gmlc_background,
+        1
+      );
+      state.gmlfullgame_sub_message = message;
+      state.gmlfullgame_sub_choice_buttons = [];
+      gml_Script_s_fullgame_show_sub_positions(_inst, _other, state);
+    }
+    function gml_Script_s_fullgame_substitute(_inst, _other) {
+      var position = _inst.gmlsub_position;
+      var state = yyInst(_inst, _other, YYASSET_REF(0x00000062));
+      var positions = ["QB", "RB", "TE", "WR", "OL", "DL", "LB", "CB", "S", "K"];
+      var reserves = gml_Script_s_fullgame_get_substitutes(_inst, _other, position);
+      state.gmlfullgame_sub_position = position;
+      for (var i = 0; i < state.gmlfullgame_sub_buttons.length; i++) {
+        var button_id = state.gmlfullgame_sub_buttons[i];
+        if (instance_exists(button_id)) {
+          instance_destroy(_inst, button_id);
+        }
+      }
+      state.gmlfullgame_sub_buttons = [];
+      state.gmlfullgame_sub_choice_buttons = [];
+      var popup = yyInst(_inst, _other, state.gmlfullgame_sub_message);
+      yyInst(_inst, _other, popup.gmlinst_title).gmltext =
+        positions[position - 1] + " " + gml_Script_s_str(_inst, _other, "ui_Reserves");
+      yyInst(_inst, _other, popup.gmlinst_msg).gmltext =
+        gml_Script_s_str(_inst, _other, "msg_ChooseReserve");
+      var back_button = yyInst(_inst, _other, popup.gmlinst_btn_1);
+      var close_button = yyInst(_inst, _other, popup.gmlinst_btn_2);
+      back_button.gmltext = gml_Script_s_str(_inst, _other, "ui_Back");
+      back_button.gmlonClickAction = gml_Script_s_fullgame_back_to_positions;
+      close_button.gmltext = gml_Script_s_str(_inst, _other, "ui_Close");
+      close_button.gmlonClickAction = gml_Script_s_fullgame_close_subs;
+      close_button.visible = true;
+      close_button.gmlactive = true;
+      for (var i = 0; i < reserves.length; i++) {
+        var player = reserves[i];
+        var first_name = String(ds_map_find_value(player, "fname") || "Reserve");
+        var last_name = String(ds_map_find_value(player, "lname") || "Player");
+        var button_id = instance_create_layer(115 + i * 157, 160, "PopUps", YYASSET_REF(0x00000023));
+        var button = yyInst(_inst, _other, button_id);
+        button.gmltext = first_name.charAt(0) + ". " + last_name;
+        button.gmlsub_position = position;
+        button.gmlsubstitute_player = player;
+        button.gmlonClickAction = gml_Script_s_fullgame_substitute_selected;
+        button.gmlgp_allowed = 1;
+        button.depth = popup.depth - 1;
+        state.gmlfullgame_sub_choice_buttons.push(button_id);
+      }
+    }
+    function gml_Script_s_fullgame_back_to_positions(_inst, _other) {
+      var state = yyInst(_inst, _other, YYASSET_REF(0x00000062));
+      for (var i = 0; i < state.gmlfullgame_sub_choice_buttons.length; i++) {
+        var button_id = state.gmlfullgame_sub_choice_buttons[i];
+        if (instance_exists(button_id)) {
+          instance_destroy(_inst, button_id);
+        }
+      }
+      state.gmlfullgame_sub_choice_buttons = [];
+      var popup = yyInst(_inst, _other, state.gmlfullgame_sub_message);
+      yyInst(_inst, _other, popup.gmlinst_title).gmltext =
+        gml_Script_s_str(_inst, _other, "ui_Substitute");
+      var back_button = yyInst(_inst, _other, popup.gmlinst_btn_1);
+      back_button.gmltext = gml_Script_s_str(_inst, _other, "ui_Close");
+      back_button.gmlonClickAction = gml_Script_s_fullgame_close_subs;
+      var close_button = yyInst(_inst, _other, popup.gmlinst_btn_2);
+      close_button.visible = false;
+      close_button.gmlactive = false;
+      gml_Script_s_fullgame_show_sub_positions(_inst, _other, state);
+    }
+    function gml_Script_s_fullgame_substitute_selected(_inst, _other) {
+      var state = yyInst(_inst, _other, YYASSET_REF(0x00000062));
+      var position = _inst.gmlsub_position;
+      var selected = _inst.gmlsubstitute_player;
+      var choices = gml_Script_s_fullgame_find_substitute(_inst, _other, position);
+      if (!yyfequal(choices.starter, -4) &&
+          yyGetBool(ds_exists(selected, 1)) &&
+          yyfequal(ds_map_find_value(selected, "position"), position) &&
+          !yyfless(ds_map_find_value(selected, "condition"), 0) &&
+          !yyGetBool(gml_Script_s_player_benched(state, _other, selected))) {
+        ds_map_set(choices.starter, "manual_backup", true);
+        ds_map_set(choices.starter, "backup", true);
+        ds_map_set(selected, "manual_backup", false);
+        ds_map_set(selected, "backup", false);
+        gml_Script_s_tag_backups_internal(state, _other, state.gmlroster);
+      }
+      gml_Script_s_fullgame_close_subs(_inst, _other);
+    }
+    function gml_Script_s_fullgame_close_subs(_inst, _other) {
+      var state = yyInst(_inst, _other, YYASSET_REF(0x00000062));
+      if (variable_instance_exists(state.id, "gmlfullgame_sub_buttons")) {
+        for (var i = 0; i < state.gmlfullgame_sub_buttons.length; i++) {
+          var button_id = state.gmlfullgame_sub_buttons[i];
+          if (instance_exists(button_id)) {
+            instance_destroy(_inst, button_id);
+          }
+        }
+      }
+      state.gmlfullgame_sub_buttons = [];
+      if (Array.isArray(state.gmlfullgame_sub_choice_buttons)) {
+        for (var i = 0; i < state.gmlfullgame_sub_choice_buttons.length; i++) {
+          var button_id = state.gmlfullgame_sub_choice_buttons[i];
+          if (instance_exists(button_id)) {
+            instance_destroy(_inst, button_id);
+          }
+        }
+      }
+      state.gmlfullgame_sub_choice_buttons = [];
+      state.gmlfullgame_submenu_open = false;
+      gml_Script_s_msg_clear(_inst, _other);
+    }
+// /// @description  (then:script[ok; custom], custom)
 // /// @param then:script[ok; custom]
 // /// @param  custom
 function gml_Script_poki_commercial_break(_inst, _other) {
@@ -20483,8 +20731,17 @@ function gml_Script_s_obj_season_tally_create(_inst, _other) {
           if (!yyGetBool(__yy__v32.gmldone_season_review)) {
             gmldt = yyfplus(gmldt, yyfgreater(__yy__v32.gmlweek, 18) ? "PS" : yyfplus("W", __yy_gml_errCheck(string(__yy__v32.gmlweek))));
           }
-          yyInst(_inst, _other, 100658).gmltext = yyfplus(yyfplus(yyfplus(yyfplus(yyfplus(yyfplus(yyfplus(yyfplus(yyfplus(__yy_gml_errCheck(gml_Script_s_str(__yy__v32, _inst, "ui_SeasonReview")), ":  "), __yy_gml_errCheck(ds_map_find_value(__yy__v32.gmlmyteam, "name"))), "  ("), __yy_gml_errCheck(__yy__v32.gmlfname)), " "), __yy_gml_errCheck(__yy__v32.gmllname)), ")"), "  "), __yy_gml_errCheck(gmldt));
-          yyInst(_inst, _other, 100655).gmltext = gml_Script_s_get_string_record(__yy__v32, _inst, __yy__v32.gmlmyteam, true);
+          var hsSchoolTeamName = __yy__v32.gmlhsSchool === "Hampshire High" ?
+            "MSJ" : "LMS";
+          var seasonTeamName = __yy__v32.gmlhsCareerPending ?
+            hsSchoolTeamName : ds_map_find_value(__yy__v32.gmlmyteam, "name");
+          yyInst(_inst, _other, 100658).gmltext = yyfplus(yyfplus(yyfplus(yyfplus(yyfplus(yyfplus(yyfplus(yyfplus(yyfplus(__yy_gml_errCheck(gml_Script_s_str(__yy__v32, _inst, "ui_SeasonReview")), ":  "), __yy_gml_errCheck(seasonTeamName)), "  ("), __yy_gml_errCheck(__yy__v32.gmlfname)), " "), __yy_gml_errCheck(__yy__v32.gmllname)), ")"), "  "), __yy_gml_errCheck(gmldt));
+          yyInst(_inst, _other, 100655).gmltext = __yy__v32.gmlhsCareerPending ?
+            "" :
+            gml_Script_s_get_string_record(__yy__v32, _inst, __yy__v32.gmlmyteam, true);
+          if (__yy__v32.gmlhsCareerPending) {
+            yyInst(_inst, _other, 100655).visible = false;
+          }
         }
       }
     }
@@ -20567,13 +20824,17 @@ function gml_Script_s_obj_season_tally_create(_inst, _other) {
                   var gmlopp_map = gml_Script_s_get_team_by_id(__yy__v35, _inst, ds_map_find_value(gmlmap, "home_team"));
                   if (yyfequal(ds_map_find_value(gmlmap, "away_team"), yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlmyteam_id)) {
                     {
-                      ds_list_add(_inst.gmll_team, yyfplus(__yy_gml_errCheck(gml_Script_s_get_human_opponent_sla_prefix(__yy__v35, _inst, "@", gmlwk)), __yy_gml_errCheck(ds_map_find_value(gmlopp_map, "tla"))));
+                      ds_list_add(_inst.gmll_team, __yy__v35.gmlhsCareerPending ?
+                        hsGetOpponentName(__yy__v35, gmlwk - 1) :
+                        yyfplus(__yy_gml_errCheck(gml_Script_s_get_human_opponent_sla_prefix(__yy__v35, _inst, "@", gmlwk)), __yy_gml_errCheck(ds_map_find_value(gmlopp_map, "tla"))));
                       gmlpd = yyfminus(__yy_gml_errCheck(ds_map_find_value(gmlmap, "away_score")), __yy_gml_errCheck(ds_map_find_value(gmlmap, "home_score")));
                     }
                   } else {
                     {
                       gmlopp_map = gml_Script_s_get_team_by_id(__yy__v35, _inst, ds_map_find_value(gmlmap, "away_team"));
-                      ds_list_add(_inst.gmll_team, yyfplus(__yy_gml_errCheck(gml_Script_s_get_human_opponent_sla_prefix(__yy__v35, _inst, "", gmlwk)), __yy_gml_errCheck(ds_map_find_value(gmlopp_map, "tla"))));
+                      ds_list_add(_inst.gmll_team, __yy__v35.gmlhsCareerPending ?
+                        hsGetOpponentName(__yy__v35, gmlwk - 1) :
+                        yyfplus(__yy_gml_errCheck(gml_Script_s_get_human_opponent_sla_prefix(__yy__v35, _inst, "", gmlwk)), __yy_gml_errCheck(ds_map_find_value(gmlopp_map, "tla"))));
                       gmlpd = yyfminus(__yy_gml_errCheck(ds_map_find_value(gmlmap, "home_score")), __yy_gml_errCheck(ds_map_find_value(gmlmap, "away_score")));
                     }
                   }
@@ -20871,6 +21132,12 @@ function gml_Script_s_maps_array_sort_week(_inst, _other, argument0, argument1) 
 }
 function gml_Script_s_get_human_opponent_sla_prefix(_inst, _other, argument0, argument1) {
   {
+    if (yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlhsCareerPending) {
+      return "";
+    }
+    if (yyfequal(argument0, "@")) {
+      return "";
+    }
     if (!yyGetBool(gml_Script_s_is_co_mode(_inst, _other))) {
       return argument0;
     }
@@ -21297,6 +21564,7 @@ function gml_Script_s_choose_mode_HC(_inst, _other) {
     yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlfr_mode = 1;
     yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlqb_mode = 0;
     yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlco_mode = 0;
+    yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlfullgame_mode = false;
     gml_Script_s_msg_clear(_inst, _other);
     gml_Script_s_update_ui_colours(_inst, _other);
     gml_Script_btn_click_GenerateCharacter(_inst, _other);
@@ -21317,16 +21585,24 @@ function hsShowNativeMessage(_inst, _other, title, message, leftText, rightText,
     1
   );
   var popup = yyInst(_inst, _other, popupId);
-  yyInst(_inst, _other, popup.gmlinst_btn_1).gmlhsCareerAction = leftAction;
-  yyInst(_inst, _other, popup.gmlinst_btn_2).gmlhsCareerAction = rightAction;
+  var leftButton = yyInst(_inst, _other, popup.gmlinst_btn_1);
+  var rightButton = yyInst(_inst, _other, popup.gmlinst_btn_2);
+  leftButton.gmlhsCareerAction = leftAction;
+  rightButton.gmlhsCareerAction = rightAction;
+  if (!rightText) {
+    leftButton.x = display_get_gui_width() / 2 - 45;
+    rightButton.visible = false;
+  }
 }
-function hsGetOpponentName(state) {
+function hsGetOpponentName(state, gameIndex) {
   var opponents = state.gmlhsSchool === "Hampshire High" ?
-    ["Lavticit Lions", "Pinewood Panthers", "Northgate Knights",
+    ["LMS", "Pinewood Panthers", "Northgate Knights",
       "Cedar Valley Wolves", "East Ridge Eagles", "Westfield Wildcats"] :
-    ["Hampshire Hawks", "Pinewood Panthers", "Northgate Knights",
+    ["MSJ", "Pinewood Panthers", "Northgate Knights",
       "Cedar Valley Wolves", "East Ridge Eagles", "Westfield Wildcats"];
-  return opponents[Math.max(0, state.gmlhsSeasonWeek || 0) % opponents.length];
+  gameIndex = Number.isInteger(gameIndex) ?
+    Math.max(0, gameIndex) : Math.max(0, state.gmlhsSeasonWeek || 0);
+  return opponents[gameIndex % opponents.length];
 }
 function hsCreateSchedule(state) {
   if (yyGetBool(ds_exists(state.gmlfixturelist, 2))) {
@@ -21353,14 +21629,18 @@ function hsCreateSchedule(state) {
     throw new Error("The selected school team could not be added to the high-school schedule.");
   }
 
-  for (var gameIndex = 0; gameIndex < 6; gameIndex++) {
+  for (var gameIndex = 0; gameIndex < 1; gameIndex++) {
     var opponentTeamIndex = (schoolTeamIndex + gameIndex + 1) % teamCount;
+    var opponentTeam = ds_list_find_value(state.gmlteamlist, opponentTeamIndex);
+    var schoolTeam = ds_list_find_value(state.gmlteamlist, schoolTeamIndex);
+    var schoolTeamId = real(ds_map_find_value(schoolTeam, "uid"));
+    var opponentTeamId = real(ds_map_find_value(opponentTeam, "uid"));
     var fixture = ds_map_create();
     ds_map_set(fixture, "week", gameIndex + 1);
     ds_map_set(fixture, "away_team",
-      gameIndex % 2 === 0 ? schoolTeamIndex : opponentTeamIndex);
+      gameIndex % 2 === 0 ? schoolTeamId : opponentTeamId);
     ds_map_set(fixture, "home_team",
-      gameIndex % 2 === 0 ? opponentTeamIndex : schoolTeamIndex);
+      gameIndex % 2 === 0 ? opponentTeamId : schoolTeamId);
     ds_map_set(fixture, "away_score", -1);
     ds_map_set(fixture, "home_score", -1);
     ds_map_set(fixture, "human_win", "unplayed");
@@ -21369,38 +21649,24 @@ function hsCreateSchedule(state) {
 }
 function hsFindNextGameWeek(_inst, _other, state) {
   if (state.gmlhsCareerPending &&
-      ds_list_size(state.gmlfixturelist) === 0) {
+      (!yyGetBool(ds_exists(state.gmlfixturelist, 2)) ||
+       ds_list_size(state.gmlfixturelist) === 0)) {
     hsCreateSchedule(state);
   }
-  var currentWeek = Math.max(1, state.gmlweek);
+  var currentWeek = Math.max(1, (state.gmlhsSeasonWeek || 0) + 1);
   for (var fixtureIndex = 0; fixtureIndex < ds_list_size(state.gmlfixturelist); fixtureIndex++) {
     var fixture = ds_list_find_value(state.gmlfixturelist, fixtureIndex);
     if (!fixture || !ds_exists(fixture, 1)) continue;
     var fixtureWeek = real(ds_map_find_value(fixture, "week"));
-    if (fixtureWeek >= currentWeek &&
-        fixtureWeek <= 6 &&
+    if (fixtureWeek === currentWeek &&
         ds_map_find_value(fixture, "human_win") === "unplayed") {
       return fixtureWeek;
     }
   }
-  if (state.gmlhsCareerPending && state.gmlhsLiveMatchPending &&
-      state.gmlhsSeasonWeek === 0) {
-    hsCreateSchedule(state);
-    for (var retryIndex = 0; retryIndex < ds_list_size(state.gmlfixturelist); retryIndex++) {
-      var retryFixture = ds_list_find_value(state.gmlfixturelist, retryIndex);
-      if (!retryFixture || !ds_exists(retryFixture, 1)) continue;
-      var retryWeek = real(ds_map_find_value(retryFixture, "week"));
-      if (retryWeek >= currentWeek && retryWeek <= 6 &&
-          ds_map_find_value(retryFixture, "human_win") === "unplayed") {
-        return retryWeek;
-      }
-    }
-  }
-  throw new Error("No remaining regular-season fixture is available for the high-school career.");
+  throw new Error("No unplayed fixture is available for high-school game " + currentWeek + ".");
 }
 function hsAdvanceToGameWeek(_inst, _other, state, targetWeek) {
-  if (targetWeek < state.gmlweek ||
-      targetWeek > 6) {
+  if (!Number.isInteger(targetWeek) || targetWeek < 1 || targetWeek > 1) {
     throw new Error("The high-school schedule could not advance to its next playable game.");
   }
   state.gmlweek = targetWeek;
@@ -21417,14 +21683,20 @@ function hsApplyPlayerButtonPalette(_inst, _other, state) {
   }
 }
 function hsConfigureCareerHome(_inst, _other, state) {
-  if (!state.gmlhsCareerPending || !state.gmlhsSeasonActive) return;
-  yyInst(_inst, _other, 100240).gmltext = state.gmlhsSchool.toUpperCase() + " FOOTBALL";
+  if (!state.gmlhsCareerPending ||
+      (!state.gmlhsSeasonActive && !state.gmlhsOffersReady)) return;
+  yyInst(_inst, _other, 100240).gmltext =
+    (state.gmlhsSchool === "Hampshire High" ? "MSJ" : "LMS") + " FOOTBALL";
   yyInst(_inst, _other, 100245).gmltext =
-    "GAME " + Math.min(6, state.gmlhsSeasonWeek + 1) + " / 6";
-  yyInst(_inst, _other, 100247).gmltext =
-    (state.gmlhsWins || 0) + " - " + (state.gmlhsLosses || 0);
+    state.gmlhsOffersReady ? "CAREER COMPLETE" : "GAME 1 / 1";
+  yyInst(_inst, _other, 100247).gmltext = "";
+  yyInst(_inst, _other, 100247).visible = false;
   yyInst(_inst, _other, 100238).gmltext =
-    "PLAY GAME " + Math.min(6, state.gmlhsSeasonWeek + 1);
+    state.gmlhsOffersReady ? "CONTINUE" : "PLAY GAME 1";
+  if (state.gmlhsOffersReady) {
+    var continueButton = yyInst(_inst, _other, 100238);
+    continueButton.gmlonClickAction = kgml_Script_btn_click_Continue;
+  }
   yyInst(_inst, _other, 100241).visible = false;
   yyInst(_inst, _other, 100244).visible = false;
   [100242, 100243, 100236, 100229, 100248].forEach(function (instanceId) {
@@ -21432,26 +21704,37 @@ function hsConfigureCareerHome(_inst, _other, state) {
       yyInst(_inst, _other, instanceId).visible = false;
     }
   });
-  if (!state.gmlhsSeasonButton ||
-      !yyGetBool(instance_exists(state.gmlhsSeasonButton))) {
-    state.gmlhsSeasonButton = gml_Script_s_create_button(
-      _inst,
-      _other,
-      240,
-      144,
-      __yy_gml_object_create(
-        _inst,
-        (_inst.gml___struct___206 = __yy_method(
-          _inst,
-          gml_Script____struct___206_gml_Object_obj_home_Create_0
-        )),
-        "SEASON",
-        kgml_Script_btn_click_League,
-        1.5
-      ),
-      YYASSET_REF(0x00000014)
-    );
+  if (_inst.gmlb_view && yyGetBool(instance_exists(_inst.gmlb_view))) {
+    yyInst(_inst, _other, _inst.gmlb_view).visible = false;
   }
+}
+function hsCompleteCareerGame(_inst, _other, state) {
+  state.gmlhsLiveMatchPending = false;
+  state.gmlhsSeasonWeek = 1;
+  state.gmlhsSeasonActive = false;
+  state.gmlhsOffersReady = true;
+  state.gmlweek = 1;
+  state.gmlstage = 1;
+  gml_Script_s_stop_brass_loop(_inst, _other);
+  gml_Script_s_msg_clear(_inst, _other);
+  room_goto(YYASSET_REF(0x0300000e));
+}
+function hsConfigurePostmatch(_inst, _other, state) {
+  if (!state.gmlhsCareerPending) return;
+
+  var continueButton = yyInst(_inst, _other, 100479);
+  continueButton.x = 336;
+  continueButton.gmltext = gml_Script_s_str(_inst, _other, "ui_Continue");
+  continueButton.gmlactive = true;
+  continueButton.gmlonClickAction = kgml_Script_s_do_postmatch_dilemma;
+
+  [100481, 100484, 100485, 100488].forEach(function (instanceId) {
+    if (!yyGetBool(instance_exists(instanceId))) return;
+    var instance = yyInst(_inst, _other, instanceId);
+    instance.visible = false;
+    instance.gmlactive = false;
+    instance.gmltext = "";
+  });
 }
 function hsCollegeRatingAfterRecruiting(startRating, offerRating) {
   var ratingLoss = startRating <= 1.5 ? 1.5 : startRating <= 2.5 ? 1 : 0.5;
@@ -21471,9 +21754,11 @@ function hsSetUniformColor(state, field, color, shadow) {
   state[field] = values;
 }
 function hsApplySchoolUniforms(_inst, _other, state, humanTeam) {
-  var navy = make_color_rgb(5, 50, 110);
+  var black = make_color_rgb(12, 12, 16);
+  var blue = make_color_rgb(28, 73, 145);
   var gold = make_color_rgb(181, 158, 101);
   var white = make_color_rgb(248, 246, 238);
+  var selectedSchoolIsMsj = state.gmlhsSchool === "Hampshire High";
   var homeIsSchool = humanTeam === 1;
   var kits = [
     { suffix: "home", school: homeIsSchool },
@@ -21482,20 +21767,22 @@ function hsApplySchoolUniforms(_inst, _other, state, humanTeam) {
   var fields = ["helmet", "logo", "shirt", "sleeve", "pants", "stripe", "socks1", "socks2"];
   for (var kitIndex = 0; kitIndex < kits.length; kitIndex++) {
     var kit = kits[kitIndex];
+    var msjKit = kit.school ? selectedSchoolIsMsj : !selectedSchoolIsMsj;
+    var primary = msjKit ? white : black;
+    var secondary = msjKit ? gold : blue;
+    var accent = msjKit ? black : white;
     for (var fieldIndex = 0; fieldIndex < fields.length; fieldIndex++) {
       var field = fields[fieldIndex];
-      var color = kit.school ?
-        (field === "logo" || field === "sleeve" || field === "pants" ||
-          field === "stripe" ? gold : navy) :
-        (field === "helmet" || field === "shirt" || field === "pants" ||
-          field === "socks1" || field === "socks2" ? white : navy);
+      var color = field === "logo" || field === "sleeve" ||
+        field === "stripe" || field === "socks2" ? secondary : primary;
+      if (field === "stripe" || field === "socks2") color = accent;
       hsSetUniformColor(state, "gmlcol_" + field + "_" + kit.suffix, color,
         field === "sleeve" || field === "pants");
     }
     hsSetUniformColor(state, "gmlcol_pants_" + kit.suffix + "_b",
-      kit.school ? gold : white, true);
+      secondary, true);
     hsSetUniformColor(state, "gmlcol_endzone_" + kit.suffix,
-      kit.school ? gold : navy, false);
+      secondary, false);
   }
 }
 function hsCreateMatchTeam(team, name, tla) {
@@ -21505,6 +21792,56 @@ function hsCreateMatchTeam(team, name, tla) {
   ds_map_set(matchTeam, "tla", tla);
   ds_map_set(matchTeam, "roof", 0);
   return matchTeam;
+}
+function hsCareerInputActive(state) {
+  return (state.gmlhsCareerPending && state.gmlhsLiveMatchPending) ||
+    state.gmlhsCareerComplete;
+}
+function hsApplyCareerArrowMovement(player, state) {
+  if (!hsCareerInputActive(state) ||
+      !state.gmlplayer_profile ||
+      player.gmlpmap !== state.gmlplayer_profile) return;
+
+  if (path_exists(player.gmlmy_route)) path_delete(player.gmlmy_route);
+  var moveX = (keyboard_check(39) ? 1 : 0) - (keyboard_check(37) ? 1 : 0);
+  var moveY = (keyboard_check(40) ? 1 : 0) - (keyboard_check(38) ? 1 : 0);
+  if (moveX === 0 && moveY === 0) {
+    player.gmljforce = 0;
+    return;
+  }
+  player.gmljdir = point_direction(0, 0, moveX, moveY);
+  player.gmljforce = 1;
+}
+function hsEnsureTeammates(state, _inst) {
+  var requiredPositions = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+  var rosterPositions = {};
+  for (var playerIndex = 0;
+    playerIndex < ds_list_size(state.gmlroster);
+    playerIndex++) {
+    var player = ds_list_find_value(state.gmlroster, playerIndex);
+    if (yyGetBool(ds_exists(player, 1))) {
+      rosterPositions[ds_map_find_value(player, "position")] = true;
+    }
+  }
+  for (var positionIndex = 0;
+    positionIndex < requiredPositions.length;
+    positionIndex++) {
+    var position = requiredPositions[positionIndex];
+    if (rosterPositions[position]) continue;
+    var teammate = gml_Script_s_create_player(state, _inst, position, 0, 2, 4);
+    ds_map_set(teammate, "signed_year", -1);
+    ds_map_set(teammate, "teamid", state.gmlmyteam_id);
+    ds_map_set(teammate, "condition", 100);
+    ds_map_set(teammate, "skill", 4);
+    ds_map_set(teammate, "speed", 4);
+    ds_map_set(teammate, "strength", 4);
+    ds_map_set(teammate, "stamina", 4);
+    ds_map_set(teammate, "max_skill", 10);
+    ds_map_set(teammate, "max_speed", 10);
+    ds_map_set(teammate, "max_strength", 10);
+    ds_map_set(teammate, "max_stamina", 10);
+    ds_list_add(state.gmlroster, teammate);
+  }
 }
 function hsCopyUniformColorsToPreview(state, uniform, side) {
   var suffix = side === "home" ? "home" : "away";
@@ -21534,8 +21871,7 @@ function hsShowNativeOffers(_inst, _other, state) {
   var secondStars = Math.max(1, firstStars - 1);
   var firstCollegeRating = hsCollegeRatingAfterRecruiting(state.gmlhsStartRating, firstStars);
   var secondCollegeRating = hsCollegeRatingAfterRecruiting(state.gmlhsStartRating, secondStars);
-  var message = "High school season complete: " + (state.gmlhsWins || 0) +
-    "-" + (state.gmlhsLosses || 0) + ".\n\n" +
+  var message = "Your high school game is complete.\n\n" +
     ds_map_find_value(firstTeam, "name") + ": " + firstStars +
     " stars (college entry " + firstCollegeRating + ").\n" +
     ds_map_find_value(secondTeam, "name") + ": " + secondStars +
@@ -21569,7 +21905,7 @@ function hsSetupCharacterControls(_inst, _other) {
 
     var labels = ["SCHOOL", "POSITION", "STARS"];
     var values = [
-      state.gmlhsSchool === "Hampshire High" ? "HAMPSHIRE" : "LAVTICIT",
+        state.gmlhsSchool === "Hampshire High" ? "MSJ" : "LMS",
       state.gmlhsPlayerPosition,
       ""
     ];
@@ -21603,6 +21939,7 @@ function gml_Script_s_choose_mode_QB(_inst, _other) {
   {
     gml_Script_slog(_inst, _other, "s_choose_mode_QB");
     var state = yyInst(_inst, _other, YYASSET_REF(0x00000062));
+    state.gmlfullgame_mode = false;
     var action = _inst.gmlhsCareerAction;
     if (action === "hs-schedule-close") {
       state.gmlhsLiveMatchPending =
@@ -21628,6 +21965,7 @@ function gml_Script_s_choose_mode_QB(_inst, _other) {
       state.gmlhsOfferTeamIndex = action === "offer-1" ?
         state.gmlhsOfferTeam1 : state.gmlhsOfferTeam2;
       state.gmlhsSeasonActive = false;
+      state.gmlhsOffersReady = false;
       state.gmlhsCareerPending = false;
       state.gmlhsCareerComplete = true;
       state.gmlweek = 1;
@@ -21649,6 +21987,7 @@ function gml_Script_s_choose_mode_QB(_inst, _other) {
     }
     state.gmlhsCareerPending = true;
     state.gmlhsCareerComplete = false;
+    state.gmlhsOffersReady = false;
     state.gmlhsLiveMatchPending = false;
     state.gmlfr_mode = 0;
     state.gmlqb_mode = 1;
@@ -21667,6 +22006,9 @@ function gml_Script_s_choose_mode_QB(_inst, _other) {
 }
 function gml_Script_s_choose_mode_CO_loading(_inst, _other) {
   {
+    var state = yyInst(_inst, _other, YYASSET_REF(0x00000062));
+    state.gml_coach_mode_menu = false;
+    state.gmlfullgame_mode = true;
     gml_Script_s_loading_start(_inst, _other, kgml_Script_s_choose_mode_CO);
   }
 }
@@ -21674,6 +22016,10 @@ function gml_Script_s_choose_mode_CO(_inst, _other) {
   {
     gml_Script_slog(_inst, _other, "s_choose_mode_CO");
     var state = yyInst(_inst, _other, YYASSET_REF(0x00000062));
+    if (yyGetBool(state.gml_coach_mode_menu)) {
+      state.gml_coach_mode_menu = false;
+      state.gmlfullgame_mode = true;
+    }
     state.gmlhsCareerPending = false;
     state.gmlhsSeasonActive = false;
     gml_Script_s_msg_clear(_inst, _other);
@@ -24177,7 +24523,7 @@ function gml_Script_s_college_details_starting_btn_action(_inst, _other) {
       hsState.gmlhsSchool = hsState.gmlhsSchool === "Hampshire High" ?
         "Lavticit High" : "Hampshire High";
       yyInst(_inst, _other, _inst.gmlcol).gmltext =
-        hsState.gmlhsSchool === "Hampshire High" ? "HAMPSHIRE" : "LAVTICIT";
+        hsState.gmlhsSchool === "Hampshire High" ? "MSJ" : "LMS";
       return;
     }
     yyInst(_inst, _other, yyInst(_inst, _other, global.gmlg_m).gmlteam_selections).gmlmode = 0;
@@ -34008,12 +34354,21 @@ function gml_GlobalScript_btn_click_Continue(_inst, _other) {
 }
 function gml_Script_btn_click_Continue(_inst, _other) {
   {
+    var hsState = yyInst(_inst, _other, YYASSET_REF(0x00000062));
+    if (hsState.gmlhsCareerPending && hsState.gmlhsOffersReady) {
+      hsShowNativeOffers(_inst, _other, hsState);
+      return;
+    }
     gml_Script_s_play(_inst, _other, 1);
   }
 }
 function gml_Script_btn_click_SimGame(_inst, _other) {
   {
     var gmlstate = yyInst(_inst, _other, YYASSET_REF(0x00000062));
+    if (gmlstate.gmlhsCareerPending &&
+        yyfequal(_inst.gmltext, "Sim Season")) {
+      return;
+    }
     gmlstate.gmlsim_action = true;
     if (yyfequal(_inst.gmltext, "Sim Season")) {
       var gmlend_week;
@@ -34095,6 +34450,7 @@ function gml_Script_btn_click_Details_Continue(_inst, _other) {
         ds_map_set(quarterback, "teamid", hsState.gmlmyteam_id);
         ds_list_add(hsState.gmlroster, quarterback);
       }
+      hsEnsureTeammates(hsState, _inst);
       gml_Script_s_set_up_qb_pmap(hsState, _inst);
       hsState.gmlweek = hsFindNextGameWeek(_inst, _other, hsState);
       gml_Script_s_co_pre_match(_inst, _other);
@@ -34124,8 +34480,10 @@ function gml_Script_btn_click_Details_Continue(_inst, _other) {
               __yy__v365.gmlmyteam_id = real(ds_map_find_value(__yy__v365.gmlmyteam, "uid"));
               __yy__v365.gmlmyconference = real(ds_map_find_value(__yy__v365.gmlmyteam, "conference"));
               __yy__v365.gmlmydivision = real(ds_map_find_value(__yy__v365.gmlmyteam, "division"));
-              ds_map_set(__yy__v365.gmlmyteam, "offense", 1);
-              ds_map_set(__yy__v365.gmlmyteam, "defense", 1);
+              if (!__yy__v365.gmlhsCareerComplete) {
+                ds_map_set(__yy__v365.gmlmyteam, "offense", 1);
+                ds_map_set(__yy__v365.gmlmyteam, "defense", 1);
+              }
               if (yyGetBool(__yy__v365.gmlfr_mode) && yyGetBool(1)) {
                 gml_Script_s_skip_to_week(__yy__v365, _inst, 18);
               }
@@ -34150,7 +34508,8 @@ function gml_Script_btn_click_Details_Continue(_inst, _other) {
               if (yyGetBool(gml_Script_s_is_co_mode(__yy__v365, _inst))) {
                 {
                   if (!(__yy__v365.gmlhsCareerSetupComplete &&
-                        __yy__v365.gmlhsCareerPending)) {
+                        (__yy__v365.gmlhsCareerPending ||
+                         __yy__v365.gmlhsCareerComplete))) {
                     __yy__v365.gmlfavourite_team_id = yyInst(_inst, _other, yyInst(_inst, _other, global.gmlg_m).gmlteam_selections).gmlfavorite_team_id;
                     __yy__v365.gmlmyteam_id = yyInst(_inst, _other, yyInst(_inst, _other, global.gmlg_m).gmlteam_selections).gmlstarting_team_id;
                     __yy__v365.gmlmyteam = gml_Script_s_get_team_by_id(__yy__v365, _inst, __yy__v365.gmlmyteam_id);
@@ -34170,7 +34529,8 @@ function gml_Script_btn_click_Details_Continue(_inst, _other) {
               }
               if (!yyGetBool(gml_Script_s_is_co_mode(__yy__v365, _inst)) &&
                   !(__yy__v365.gmlhsCareerSetupComplete &&
-                    __yy__v365.gmlhsCareerPending)) {
+                    (__yy__v365.gmlhsCareerPending ||
+                     __yy__v365.gmlhsCareerComplete))) {
                 {
                   gml_Script_slog(__yy__v365, _inst, "Choosing random team!");
                   var gmlsorted_teams = ds_list_create();
@@ -34225,7 +34585,8 @@ function gml_Script_btn_click_Details_Continue(_inst, _other) {
             }
           }
           if (__yy__v365.gmlhsCareerSetupComplete &&
-              __yy__v365.gmlhsCareerPending) {
+              (__yy__v365.gmlhsCareerPending ||
+               __yy__v365.gmlhsCareerComplete)) {
             gml_Script_s_set_up_qb_pmap(__yy__v365, _inst);
           } else {
             var gmlweeks_rem = 1;
@@ -34443,18 +34804,13 @@ function gml_Script_btn_click_League(_inst, _other) {
   {
     var hsState = yyInst(_inst, _other, YYASSET_REF(0x00000062));
     if (hsState.gmlhsCareerPending && hsState.gmlhsSeasonActive) {
-      var gameNumber = Math.min(6, hsState.gmlhsSeasonWeek + 1);
-      var schoolName = hsState.gmlhsSchool === "Hampshire High" ?
-        "Hampshire Hawks" : "Lavticit Lions";
       hsShowNativeMessage(
         _inst,
         _other,
         "HIGH SCHOOL SEASON",
-        schoolName + "  " + (hsState.gmlhsWins || 0) + "-" +
-          (hsState.gmlhsLosses || 0) + "\n\nGAME " + gameNumber +
-          " OF 6\nNEXT OPPONENT: " + hsGetOpponentName(hsState),
+        "GAME 1 OF 1\nNEXT OPPONENT: " + hsGetOpponentName(hsState),
         "BACK",
-        "PLAY GAME " + gameNumber,
+        "PLAY GAME 1",
         "hs-schedule-close",
         "hs-next-game"
       );
@@ -35166,7 +35522,7 @@ function gml_GlobalScript_btn_click_OptionsTeamEditor(_inst, _other) {
 }
 function gml_Script_btn_click_OptionsTeamEditor(_inst, _other) {
   {
-    if (yyfequal(ds_map_find_value(yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlmap_options, "fullversion"), 1)) {
+    if (yyfequal(ds_map_find_value(yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlmap_options, "fullversion"), 1) || yyGetBool(yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlfullgame_mode)) {
       {
         gml_Script_s_save_options(_inst, _other);
         if (yyGetBool(gml_Script_s_is_co_mode(_inst, _other))) {
@@ -35250,6 +35606,9 @@ function gml_Script_s_get_roster_cap(_inst, _other) {
   {
     if (yyGetBool(gml_Script_s_is_co_mode(_inst, _other))) {
       {
+        if (yyGetBool(yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlfullgame_mode)) {
+          return 105;
+        }
         var ___sw340___ = yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlrecruitment_credits_cap;
         var ___swc341___ = -1;
         if (yyCompareVal(___sw340___, 50, g_GMLMathEpsilon, false) == 0) {
@@ -36052,6 +36411,63 @@ function gml_Script_btn_click_Profile_Rest(_inst, _other) {
         if (!__yy__v474.hasOwnProperty(__yy__v475)) continue;
         var __yy__v476 = __yy__v474[__yy__v475];
         {
+          if (yyGetBool(__yy__v476.gmlfullgame_mode) && !yyGetBool(global.gmlexhibition)) {
+            var fullGamePlayer = __yy__v476.gmlplayer_profile;
+            var fullGamePosition = ds_map_find_value(fullGamePlayer, "position");
+            var isManualBackup = yyGetBool(ds_map_find_value(fullGamePlayer, "manual_backup"));
+            if (!isManualBackup) {
+              var activeSamePosition = 0;
+              for (var fullGameIndex = 0; fullGameIndex < ds_list_size(__yy__v476.gmlroster); fullGameIndex++) {
+                var fullGameTeammate = ds_list_find_value(__yy__v476.gmlroster, fullGameIndex);
+                if (fullGameTeammate === fullGamePlayer ||
+                    !yyfequal(ds_map_find_value(fullGameTeammate, "position"), fullGamePosition) ||
+                    yyGetBool(ds_map_find_value(fullGameTeammate, "manual_backup")) ||
+                    yyGetBool(gml_Script_s_player_benched(__yy__v476, _inst, fullGameTeammate)) ||
+                    yyfless(ds_map_find_value(fullGameTeammate, "condition"), 0)) {
+                  continue;
+                }
+                activeSamePosition++;
+              }
+              if (activeSamePosition === 0) {
+                gml_Script_s_create_message(
+                  _inst,
+                  _other,
+                  gml_Script_s_str(_inst, _other, "ui_BenchPlayer"),
+                  gml_Script_s_str(_inst, _other, "msg_FullGameLastPosition"),
+                  gml_Script_s_str(_inst, _other, "ui_Ok"),
+                  "",
+                  kgml_Script_s_msg_clear,
+                  -4,
+                  global.gmlc_background,
+                  1
+                );
+                return;
+              }
+              var fullGameBenchMessage = gml_Script_s_parse_player_message(
+                __yy__v476,
+                _inst,
+                gml_Script_s_str(__yy__v476, _inst, "msg_Bench"),
+                fullGamePlayer
+              );
+              gml_Script_s_create_message(
+                __yy__v476,
+                _inst,
+                gml_Script_s_str(__yy__v476, _inst, "ui_BenchPlayer"),
+                fullGameBenchMessage,
+                gml_Script_s_str(__yy__v476, _inst, "ui_No"),
+                gml_Script_s_str(__yy__v476, _inst, "ui_Yes"),
+                kgml_Script_s_msg_clear,
+                kgml_Script_btn_response_rest_player_yes,
+                global.gmlc_background,
+                1
+              );
+              return;
+            }
+            ds_map_set(fullGamePlayer, "manual_backup", !isManualBackup);
+            gml_Script_s_tag_backups(__yy__v476, _inst);
+            room_goto(YYASSET_REF(0x03000016));
+            return;
+          }
           if (yyGetBool(gml_Script_s_is_co_mode(__yy__v476, _inst))) {
             {
               if (yyGetBool(ds_map_find_value(__yy__v476.gmlplayer_profile, "suspended"))) {
@@ -36688,6 +37104,10 @@ function gml_GlobalScript_btn_click_Roster(_inst, _other) {
 }
 function gml_Script_btn_click_Roster(_inst, _other) {
   {
+    if (yyGetBool(yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlfullgame_mode)) {
+      room_goto(YYASSET_REF(0x03000019));
+      return;
+    }
     if (yyGetBool(yyfequal(g_pBuiltIn.get_current_room(), YYASSET_REF(0x0300000e))) && yyGetBool(ds_list_size(yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlfreeagentlist))) {
       {
         _inst.gmlstage = 1;
@@ -36713,6 +37133,8 @@ function gml_Script_btn_click_Roster_Back(_inst, _other) {
         {
           if (yyGetBool(__yy__v509.gmlroster_from_store)) {
             room_goto(YYASSET_REF(0x03000008));
+          } else if (yyGetBool(__yy__v509.gmlfullgame_mode) && yyfequal(g_pBuiltIn.get_current_room(), YYASSET_REF(0x03000019))) {
+            room_goto(YYASSET_REF(0x0300000e));
           } else {
             if (yyGetBool(yyfgreater(ds_list_size(__yy__v509.gmldraftlist), 0)) && yyGetBool(yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmldraft_entered)) {
               gml_Script_btn_click_Profile_Back_To_Draft(__yy__v509, _inst);
@@ -39690,9 +40112,14 @@ function gml_Script_btn_response_rest_player_yes(_inst, _other) {
         if (!__yy__v666.hasOwnProperty(__yy__v667)) continue;
         var __yy__v668 = __yy__v666[__yy__v667];
         {
-          ds_map_set(__yy__v668.gmlplayer_profile, "resting", true);
-          if (yyfless(ds_map_find_value(__yy__v668.gmlplayer_profile, "condition"), 40)) {
-            ds_map_set(__yy__v668.gmlplayer_profile, "attitude", clamp(yyfplus(__yy_gml_errCheck(ds_map_find_value(__yy__v668.gmlplayer_profile, "attitude")), 15), 1, 100));
+          if (yyGetBool(__yy__v668.gmlfullgame_mode) && !yyGetBool(global.gmlexhibition)) {
+            ds_map_set(__yy__v668.gmlplayer_profile, "manual_backup", true);
+            gml_Script_s_tag_backups(__yy__v668, _inst);
+          } else {
+            ds_map_set(__yy__v668.gmlplayer_profile, "resting", true);
+            if (yyfless(ds_map_find_value(__yy__v668.gmlplayer_profile, "condition"), 40)) {
+              ds_map_set(__yy__v668.gmlplayer_profile, "attitude", clamp(yyfplus(__yy_gml_errCheck(ds_map_find_value(__yy__v668.gmlplayer_profile, "attitude")), 15), 1, 100));
+            }
           }
         }
       }
@@ -40162,6 +40589,11 @@ function gml_GlobalScript_s_do_prematch_dilemma(_inst, _other) {
 }
 function gml_Script_s_do_prematch_dilemma(_inst, _other, argument0) {
   {
+    var hsState = yyInst(_inst, _other, YYASSET_REF(0x00000062));
+    if (hsState.gmlhsCareerPending) {
+      hsState.gmlprematch_dilemma_done = true;
+      return false;
+    }
     gml_Script_slog(_inst, _other, yyfplus(yyfplus("s_do_prematch_dilemma START (chained count: ", __yy_gml_errCheck(string(yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlprematch_dilemma_shown_count))), ")"));
     {
       var __yy__v692 = GetWithArray(YYASSET_REF(0x00000062));
@@ -40635,43 +41067,9 @@ function gml_GlobalScript_s_do_postmatch_dilemma(_inst, _other) {
 function gml_Script_s_do_postmatch_dilemma(_inst, _other) {
   {
     var hsState = yyInst(_inst, _other, YYASSET_REF(0x00000062));
-    if (hsState.gmlhsCareerPending && hsState.gmlhsLiveMatchPending) {
-      hsState.gmlhsLiveMatchPending = false;
-      var matchState = yyInst(_inst, _other, YYASSET_REF(0x00000069));
-      var humanScore = matchState.gmlteam_score[
-        __yy_gml_array_check_index(matchState.gmlhuman_team, matchState.gmlteam_score)
-      ];
-      var opponentScore = matchState.gmlteam_score[
-        __yy_gml_array_check_index(!yyGetBool(matchState.gmlhuman_team) ? 1 : 0, matchState.gmlteam_score)
-      ];
-      hsState.gmlhsMatchWon = yyfgreater(humanScore, opponentScore);
-      if (hsState.gmlhsMatchWon) {
-        hsState.gmlhsWins = (hsState.gmlhsWins || 0) + 1;
-      } else {
-        hsState.gmlhsLosses = (hsState.gmlhsLosses || 0) + 1;
-      }
-      hsState.gmlhsSeasonWeek += 1;
-      if (hsState.gmlhsSeasonWeek >= 6) {
-        hsState.gmlhsSeasonActive = false;
-        hsShowNativeOffers(_inst, _other, hsState);
-      } else {
-        hsState.gmlweek += 1;
-        var nextGameWeek = hsFindNextGameWeek(_inst, _other, hsState);
-        hsAdvanceToGameWeek(_inst, _other, hsState, nextGameWeek);
-        var nextGameNumber = hsState.gmlhsSeasonWeek + 1;
-        hsShowNativeMessage(
-          _inst,
-          _other,
-          "GAME " + hsState.gmlhsSeasonWeek + " FINAL",
-          "HIGH SCHOOL RECORD: " + hsState.gmlhsWins + "-" +
-            hsState.gmlhsLosses + "\n\nNEXT: GAME " + nextGameNumber +
-            " VS " + hsGetOpponentName(hsState),
-          "SEASON",
-          "NEXT GAME",
-          "hs-schedule-close",
-          "hs-next-game"
-        );
-      }
+    if (hsState.gmlhsCareerPending && hsState.gmlhsCareerSetupComplete &&
+        !hsState.gmlhsOffersReady) {
+      hsCompleteCareerGame(_inst, _other, hsState);
       return;
     }
     {
@@ -44378,6 +44776,23 @@ function gml_Script_s_create_new_save(_inst, _other) {
           __yy__v789.gmlhsCareerPending = false;
           __yy__v789.gmlhsCareerComplete = false;
           __yy__v789.gmlhsSeasonActive = false;
+          __yy__v789.gmlhsOffersReady = false;
+          __yy__v789.gmlhsLiveMatchPending = false;
+          __yy__v789.gmlhsCareerSetupComplete = false;
+          __yy__v789.gmlhsSchool = "Hampshire High";
+          __yy__v789.gmlhsPlayerPosition = "QB";
+          __yy__v789.gmlhsStartRating = 1;
+          __yy__v789.gmlhsSeasonWeek = 0;
+          __yy__v789.gmlhsWins = 0;
+          __yy__v789.gmlhsLosses = 0;
+          __yy__v789.gmlhsOfferTeam1 = -1;
+          __yy__v789.gmlhsOfferTeam2 = -1;
+          __yy__v789.gmlhsOfferTeamIndex = -1;
+          __yy__v789.gmlhsRecruitRating = 1;
+          __yy__v789.gmlhsCollegeStarRating = 1;
+          if (!variable_instance_exists(__yy__v789.id, "gmlfullgame_mode")) {
+            __yy__v789.gmlfullgame_mode = false;
+          }
         }
       }
     }
@@ -44565,6 +44980,24 @@ function gml_Script_s_loadgame(_inst, _other, argument0) {
           __yy__v798.gmllname = ini_read_string("savegame", "lname", "");
           __yy__v798.gmlqb_mode = ini_read_real("savegame", "qb_mode", 0);
           __yy__v798.gmlco_mode = ini_read_real("savegame", "co_mode", 0);
+          __yy__v798.gmlfullgame_mode = ini_read_real("savegame", "fullgame_mode", 0) == 1;
+          __yy__v798.gmlhsCareerPending = ini_read_real("savegame", "hs_career_pending", 0) == 1;
+          __yy__v798.gmlhsCareerComplete = ini_read_real("savegame", "hs_career_complete", 0) == 1;
+          __yy__v798.gmlhsSeasonActive = ini_read_real("savegame", "hs_season_active", 0) == 1;
+          __yy__v798.gmlhsOffersReady = ini_read_real("savegame", "hs_offers_ready", 0) == 1;
+          __yy__v798.gmlhsLiveMatchPending = ini_read_real("savegame", "hs_live_match_pending", 0) == 1;
+          __yy__v798.gmlhsCareerSetupComplete = ini_read_real("savegame", "hs_career_setup_complete", 0) == 1;
+          __yy__v798.gmlhsSchool = ini_read_string("savegame", "hs_school", "Hampshire High");
+          __yy__v798.gmlhsPlayerPosition = ini_read_string("savegame", "hs_player_position", "QB");
+          __yy__v798.gmlhsStartRating = ini_read_real("savegame", "hs_start_rating", 1);
+          __yy__v798.gmlhsSeasonWeek = ini_read_real("savegame", "hs_season_week", 0);
+          __yy__v798.gmlhsWins = ini_read_real("savegame", "hs_wins", 0);
+          __yy__v798.gmlhsLosses = ini_read_real("savegame", "hs_losses", 0);
+          __yy__v798.gmlhsOfferTeam1 = ini_read_real("savegame", "hs_offer_team_1", -1);
+          __yy__v798.gmlhsOfferTeam2 = ini_read_real("savegame", "hs_offer_team_2", -1);
+          __yy__v798.gmlhsOfferTeamIndex = ini_read_real("savegame", "hs_offer_team_index", -1);
+          __yy__v798.gmlhsRecruitRating = ini_read_real("savegame", "hs_recruit_rating", 1);
+          __yy__v798.gmlhsCollegeStarRating = ini_read_real("savegame", "hs_college_star_rating", 1);
           __yy__v798.gmlfr_mode = ini_read_real("savegame", "fr_mode", 1);
           __yy__v798.gmlfname_coach = ini_read_string("savegame", "fname_coach", "");
           __yy__v798.gmllname_coach = ini_read_string("savegame", "lname_coach", "");
@@ -44873,6 +45306,7 @@ function gml_Script_s_loadgame(_inst, _other, argument0) {
               ds_list_add(__yy__v798.gmlroster, gmlpmap);
             }
           }
+          gml_Script_s_fullgame_fill_roster(__yy__v798, _inst);
           gmlsize = ini_read_real("savegame", "stafflist", 0);
           gml_Script_slog(__yy__v798, _inst, yyfplus("stafflist size=", __yy_gml_errCheck(string(gmlsize))));
           var gmlr = 0;
@@ -44990,85 +45424,88 @@ function gml_Script_s_loadgame(_inst, _other, argument0) {
 function gml_Script_s_cap_breach_refresh(_inst, _other) {
   {
     gml_Script_slog(_inst, _other, yyfplus(yyfplus("s_cap_breach_refresh[", __yy_gml_errCheck(string(yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlcap_breach_flag))), "]"));
+    var fullgame_roster = yyGetBool(_inst.gmlfullgame_mode);
     if (yyfequal(yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlcap_breach_flag, -2)) {
       {
         yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlcap_breach_flag = 0;
       }
     }
-    if (yyfgreater(gml_Script_s_get_salary_total(_inst, _other), yyfplus(__yy_gml_errCheck(_inst.gmlsalary_cap), __yy_gml_errCheck(_inst.gmlboost_salary_cap)))) {
+    if (!fullgame_roster && yyfgreater(gml_Script_s_get_salary_total(_inst, _other), yyfplus(__yy_gml_errCheck(_inst.gmlsalary_cap), __yy_gml_errCheck(_inst.gmlboost_salary_cap)))) {
       {
         yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlcap_breach_flag = 1;
       }
     }
-    var gmli = 0;
-    for (; yyfless(gmli, ds_list_size(_inst.gmlroster)); g_yyPrePostObject__ = gmli, gmli = g_yyPrePostObject__ instanceof Long ? gmli.add(1) : ++gmli, g_yyPrePostObject__) {
-      {
-        var gmlpmap = ds_list_find_value(_inst.gmlroster, gmli);
-        var gmlpos = ds_map_find_value(gmlpmap, "position");
-        var gmlcount = gml_Script_s_count_players_by_position(_inst, _other, gmlpos);
-        var gmlmaxpos = 1;
-        var ___sw520___ = gmlpos;
-        var ___swc521___ = -1;
-        if (yyCompareVal(___sw520___, 1, g_GMLMathEpsilon, false) == 0) {
-          ___swc521___ = 0;
-        } else if (yyCompareVal(___sw520___, 2, g_GMLMathEpsilon, false) == 0) {
-          ___swc521___ = 1;
-        } else if (yyCompareVal(___sw520___, 3, g_GMLMathEpsilon, false) == 0) {
-          ___swc521___ = 2;
-        } else if (yyCompareVal(___sw520___, 4, g_GMLMathEpsilon, false) == 0) {
-          ___swc521___ = 3;
-        } else if (yyCompareVal(___sw520___, 5, g_GMLMathEpsilon, false) == 0) {
-          ___swc521___ = 4;
-        } else if (yyCompareVal(___sw520___, 6, g_GMLMathEpsilon, false) == 0) {
-          ___swc521___ = 5;
-        } else if (yyCompareVal(___sw520___, 7, g_GMLMathEpsilon, false) == 0) {
-          ___swc521___ = 6;
-        } else if (yyCompareVal(___sw520___, 9, g_GMLMathEpsilon, false) == 0 || yyCompareVal(___sw520___, 8, g_GMLMathEpsilon, false) == 0) {
-          ___swc521___ = 7;
-        } else if (yyCompareVal(___sw520___, 10, g_GMLMathEpsilon, false) == 0) {
-          ___swc521___ = 8;
-        }
-        switch (___swc521___) {
-          case 0: {
-            gmlmaxpos = 2;
-            break;
+    if (!fullgame_roster) {
+      var gmli = 0;
+      for (; yyfless(gmli, ds_list_size(_inst.gmlroster)); g_yyPrePostObject__ = gmli, gmli = g_yyPrePostObject__ instanceof Long ? gmli.add(1) : ++gmli, g_yyPrePostObject__) {
+        {
+          var gmlpmap = ds_list_find_value(_inst.gmlroster, gmli);
+          var gmlpos = ds_map_find_value(gmlpmap, "position");
+          var gmlcount = gml_Script_s_count_players_by_position(_inst, _other, gmlpos);
+          var gmlmaxpos = 1;
+          var ___sw520___ = gmlpos;
+          var ___swc521___ = -1;
+          if (yyCompareVal(___sw520___, 1, g_GMLMathEpsilon, false) == 0) {
+            ___swc521___ = 0;
+          } else if (yyCompareVal(___sw520___, 2, g_GMLMathEpsilon, false) == 0) {
+            ___swc521___ = 1;
+          } else if (yyCompareVal(___sw520___, 3, g_GMLMathEpsilon, false) == 0) {
+            ___swc521___ = 2;
+          } else if (yyCompareVal(___sw520___, 4, g_GMLMathEpsilon, false) == 0) {
+            ___swc521___ = 3;
+          } else if (yyCompareVal(___sw520___, 5, g_GMLMathEpsilon, false) == 0) {
+            ___swc521___ = 4;
+          } else if (yyCompareVal(___sw520___, 6, g_GMLMathEpsilon, false) == 0) {
+            ___swc521___ = 5;
+          } else if (yyCompareVal(___sw520___, 7, g_GMLMathEpsilon, false) == 0) {
+            ___swc521___ = 6;
+          } else if (yyCompareVal(___sw520___, 9, g_GMLMathEpsilon, false) == 0 || yyCompareVal(___sw520___, 8, g_GMLMathEpsilon, false) == 0) {
+            ___swc521___ = 7;
+          } else if (yyCompareVal(___sw520___, 10, g_GMLMathEpsilon, false) == 0) {
+            ___swc521___ = 8;
           }
-          case 1: {
-            gmlmaxpos = 2;
-            break;
+          switch (___swc521___) {
+            case 0: {
+              gmlmaxpos = 2;
+              break;
+            }
+            case 1: {
+              gmlmaxpos = 2;
+              break;
+            }
+            case 2: {
+              gmlmaxpos = 3;
+              break;
+            }
+            case 3: {
+              gmlmaxpos = 3;
+              break;
+            }
+            case 4: {
+              gmlmaxpos = 5;
+              break;
+            }
+            case 5: {
+              gmlmaxpos = 4;
+              break;
+            }
+            case 6: {
+              gmlmaxpos = 3;
+              break;
+            }
+            case 7: {
+              gmlmaxpos = 4;
+              break;
+            }
+            case 8: {
+              gmlmaxpos = 2;
+              break;
+            }
           }
-          case 2: {
-            gmlmaxpos = 3;
-            break;
-          }
-          case 3: {
-            gmlmaxpos = 3;
-            break;
-          }
-          case 4: {
-            gmlmaxpos = 5;
-            break;
-          }
-          case 5: {
-            gmlmaxpos = 4;
-            break;
-          }
-          case 6: {
-            gmlmaxpos = 3;
-            break;
-          }
-          case 7: {
-            gmlmaxpos = 4;
-            break;
-          }
-          case 8: {
-            gmlmaxpos = 2;
-            break;
-          }
-        }
-        if (yyfgreater(gmlcount, gmlmaxpos)) {
-          {
-            yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlcap_breach_flag = 1;
+          if (yyfgreater(gmlcount, gmlmaxpos)) {
+            {
+              yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlcap_breach_flag = 1;
+            }
           }
         }
       }
@@ -45375,7 +45812,9 @@ function gml_Script_s_savegame(_inst, _other) {
               gmlteam_name = string(ds_map_find_value(gmltmap, "name"));
               gmltla = string(ds_map_find_value(gmltmap, "tla"));
               gmlverify = yyfplus(yyfplus(yyfplus(yyfplus(yyfplus(__yy_gml_errCheck(gmluid), ". "), __yy_gml_errCheck(gmltla)), " - "), __yy_gml_errCheck(gmlteam_name)), "... Ok");
-              gml_Script_slog(__yy__v801, _inst, gmlverify);
+              if (!yyGetBool(__yy__v801.gmlfullgame_mode)) {
+                gml_Script_slog(__yy__v801, _inst, gmlverify);
+              }
             }
           }
           var gmlpmap, gmlname, gmlpos, gmlskin;
@@ -45387,7 +45826,8 @@ function gml_Script_s_savegame(_inst, _other) {
               gmlpos = ds_map_find_value(gmlpmap, "position");
               gmlskin = ds_map_find_value(gmlpmap, "skin");
               gmlverify = yyfplus(yyfplus(yyfplus(yyfplus(yyfplus(__yy_gml_errCheck(gmlname), " - "), __yy_gml_errCheck(gml_Script_s_get_string_position(__yy__v801, _inst, gmlpos))), " Skin:"), __yy_gml_errCheck(string(gmlskin))), "... Ok");
-              if (!yyGetBool(gml_Script_s_is_debug_desktop(__yy__v801, _inst))) {
+              if (!yyGetBool(__yy__v801.gmlfullgame_mode) &&
+                  !yyGetBool(gml_Script_s_is_debug_desktop(__yy__v801, _inst))) {
                 gml_Script_slog(__yy__v801, _inst, gmlverify);
               }
             }
@@ -45417,6 +45857,24 @@ function gml_Script_s_savegame(_inst, _other) {
           ini_write_string("savegame", "lname", __yy__v801.gmllname);
           ini_write_real("savegame", "qb_mode", __yy__v801.gmlqb_mode);
           ini_write_real("savegame", "co_mode", __yy__v801.gmlco_mode);
+          ini_write_real("savegame", "fullgame_mode", yyGetBool(__yy__v801.gmlfullgame_mode) ? 1 : 0);
+          ini_write_real("savegame", "hs_career_pending", yyGetBool(__yy__v801.gmlhsCareerPending) ? 1 : 0);
+          ini_write_real("savegame", "hs_career_complete", yyGetBool(__yy__v801.gmlhsCareerComplete) ? 1 : 0);
+          ini_write_real("savegame", "hs_season_active", yyGetBool(__yy__v801.gmlhsSeasonActive) ? 1 : 0);
+          ini_write_real("savegame", "hs_offers_ready", yyGetBool(__yy__v801.gmlhsOffersReady) ? 1 : 0);
+          ini_write_real("savegame", "hs_live_match_pending", yyGetBool(__yy__v801.gmlhsLiveMatchPending) ? 1 : 0);
+          ini_write_real("savegame", "hs_career_setup_complete", yyGetBool(__yy__v801.gmlhsCareerSetupComplete) ? 1 : 0);
+          ini_write_string("savegame", "hs_school", __yy__v801.gmlhsSchool);
+          ini_write_string("savegame", "hs_player_position", __yy__v801.gmlhsPlayerPosition);
+          ini_write_real("savegame", "hs_start_rating", __yy__v801.gmlhsStartRating);
+          ini_write_real("savegame", "hs_season_week", __yy__v801.gmlhsSeasonWeek);
+          ini_write_real("savegame", "hs_wins", __yy__v801.gmlhsWins);
+          ini_write_real("savegame", "hs_losses", __yy__v801.gmlhsLosses);
+          ini_write_real("savegame", "hs_offer_team_1", __yy__v801.gmlhsOfferTeam1);
+          ini_write_real("savegame", "hs_offer_team_2", __yy__v801.gmlhsOfferTeam2);
+          ini_write_real("savegame", "hs_offer_team_index", __yy__v801.gmlhsOfferTeamIndex);
+          ini_write_real("savegame", "hs_recruit_rating", __yy__v801.gmlhsRecruitRating);
+          ini_write_real("savegame", "hs_college_star_rating", __yy__v801.gmlhsCollegeStarRating);
           ini_write_real("savegame", "fr_mode", __yy__v801.gmlfr_mode);
           ini_write_string("savegame", "fname_coach", __yy__v801.gmlfname_coach);
           ini_write_string("savegame", "lname_coach", __yy__v801.gmllname_coach);
@@ -45620,7 +46078,9 @@ function gml_Script_s_savegame(_inst, _other) {
             {
               gmlpmap = ds_list_find_value(__yy__v801.gmlroster, gmlr);
               gmlstr = ds_map_write(gmlpmap);
-              gml_Script_slog(__yy__v801, _inst, ds_map_find_value(gmlpmap, "lname"));
+              if (!yyGetBool(__yy__v801.gmlfullgame_mode)) {
+                gml_Script_slog(__yy__v801, _inst, ds_map_find_value(gmlpmap, "lname"));
+              }
               ini_write_string("savegame", yyfplus("roster_", __yy_gml_errCheck(string(gmlr))), gmlstr);
             }
           }
@@ -47775,6 +48235,10 @@ function gml_Script_s_co_get_sim_results(_inst, _other, argument0, argument1, ar
         gmlteam_strengthHome = yyfplus(gmlteam_strengthHome, gml_Script_s_get_reputation_points(_inst, _other, argument1));
       }
     }
+    if (yyGetBool(yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlfullgame_mode)) {
+      gmlteam_strengthAway = yyfplus(gmlteam_strengthAway, gml_Script_s_fullgame_sim_depth_bonus(_inst, _other, argument0));
+      gmlteam_strengthHome = yyfplus(gmlteam_strengthHome, gml_Script_s_fullgame_sim_depth_bonus(_inst, _other, argument1));
+    }
     if (yyGetBool(argument2)) {
       gmlteam_strengthHome = yyfplus(gmlteam_strengthHome, 1);
     }
@@ -48252,6 +48716,24 @@ function gml_Script_s_get_retrobowl_mvp_winner(_inst, _other) {
       }
     }
   }
+}
+function gml_Script_s_fullgame_sim_depth_bonus(_inst, _other, argument0) {
+  var state = yyInst(_inst, _other, YYASSET_REF(0x00000062));
+  if (!yyGetBool(state.gmlfullgame_mode) || !yyfequal(real(ds_map_find_value(argument0, "uid")), state.gmlmyteam_id)) {
+    return 0;
+  }
+  if (!yyGetBool(ds_exists(state.gmlroster, 2))) {
+    return 0;
+  }
+  gml_Script_s_tag_backups_internal(state, _other, state.gmlroster);
+  var healthy_reserves = 0;
+  for (var i = 0; i < ds_list_size(state.gmlroster); i++) {
+    var player = ds_list_find_value(state.gmlroster, i);
+    if (yyGetBool(ds_map_find_value(player, "backup")) && yyfgreater(ds_map_find_value(player, "condition"), 0) && !yyGetBool(gml_Script_s_player_benched(state, _other, player))) {
+      healthy_reserves++;
+    }
+  }
+  return Math.min(1, healthy_reserves * 0.1);
 }
 function gml_GlobalScript_s_get_random_scoredata(_inst, _other) {
   _inst.gmls_get_random_scoredata = __yy_method(_inst, gml_Script_s_get_random_scoredata);
@@ -75725,8 +76207,33 @@ function gml_Script_s_create_new_roster(_inst, _other) {
               gml_Script_s_college_balance_create_new_roster(__yy__v1580, _inst);
             }
           }
+          gml_Script_s_fullgame_fill_roster(__yy__v1580, _inst);
         }
       }
+    }
+  }
+}
+function gml_Script_s_fullgame_fill_roster(_inst, _other) {
+  var state = yyInst(_inst, _other, YYASSET_REF(0x00000062));
+  if (!yyGetBool(state.gmlfullgame_mode)) {
+    return;
+  }
+  var target_counts = [0, 6, 8, 6, 16, 18, 14, 12, 11, 10, 4];
+  for (var position = 1; position <= 10; position++) {
+    var count = 0;
+    for (var i = 0; i < ds_list_size(state.gmlroster); i++) {
+      var player = ds_list_find_value(state.gmlroster, i);
+      if (yyfequal(ds_map_find_value(player, "position"), position)) {
+        count++;
+      }
+    }
+    while (count < target_counts[position]) {
+      var player = gml_Script_s_create_player(state, _other, position, 0, 2, 4);
+      ds_map_set(player, "signed_year", -1);
+      ds_map_set(player, "teamid", state.gmlmyteam_id);
+      ds_map_set(player, "manual_backup", false);
+      ds_list_add(state.gmlroster, player);
+      count++;
     }
   }
 }
@@ -75797,6 +76304,7 @@ function gml_Script_s_create_new_roster_newteam(_inst, _other) {
                 }
               }
             }
+            gml_Script_s_fullgame_fill_roster(__yy__v1583, _inst);
           }
         }
       }
@@ -79231,7 +79739,8 @@ function gml_GlobalScript_s_check_for_injury(_inst, _other, argument0) {
 function gml_Script_s_check_for_injury(_inst, _other, argument0) {
   {
     var gmlpmap = argument0;
-    if (yyfequal(yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlyear, 1)) {
+    var fullgame = yyGetBool(yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlfullgame_mode);
+    if (yyfequal(yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlyear, 1) && !fullgame) {
       return false;
     }
     if (yyfequal(yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlweek, 1)) {
@@ -79265,7 +79774,7 @@ function gml_Script_s_check_for_injury(_inst, _other, argument0) {
     }
     var gmlnum_inj = gml_Script_s_count_injuries(_inst, _other);
     var gmlinj_weeks = gml_Script_s_count_injuries_weeks(_inst, _other);
-    if (yyfgreater(gmlnum_inj, 2)) {
+    if (yyfgreater(gmlnum_inj, fullgame ? 4 : 2)) {
       return false;
     }
     if (yyfless(yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlop_difficulty, 3)) {
@@ -79286,9 +79795,9 @@ function gml_Script_s_check_for_injury(_inst, _other, argument0) {
     var gmlinj = 0;
     var gmlcon = ds_map_find_value(gmlpmap, "condition");
     var gmlfac = yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlfacility_rehab;
-    var gmlchance_exh = 4;
-    var gmlchance_tir = 8;
-    var gmlchance_ok = 12;
+    var gmlchance_exh = fullgame ? 2 : 4;
+    var gmlchance_tir = fullgame ? 4 : 8;
+    var gmlchance_ok = fullgame ? 7 : 12;
     if (yyflessequal(gmlcon, 20)) {
       {
         if (!yyGetBool(irandom(gmlchance_exh))) {
@@ -80343,6 +80852,10 @@ function gml_Script_s_tag_backups_internal(_inst, _other, argument0) {
               var gmlpmap = ds_list_find_value(argument0, gmli);
               var gmlpos = clamp(real(ds_map_find_value(gmlpmap, "position")), 1, 10);
               ds_map_set(gmlpmap, "backup", false);
+              if (yyGetBool(__yy__v1746.gmlfullgame_mode) && yyGetBool(ds_map_exists(gmlpmap, "manual_backup")) && yyGetBool(ds_map_find_value(gmlpmap, "manual_backup"))) {
+                ds_map_set(gmlpmap, "backup", true);
+                continue;
+              }
               if (yyGetBool(gml_Script_s_player_benched(__yy__v1746, _inst, gmlpmap))) {
                 continue;
               }
@@ -80352,6 +80865,9 @@ function gml_Script_s_tag_backups_internal(_inst, _other, argument0) {
               gmlcount = __yy_gml_array_check(gmlcount, 970830455);
               (g_yyPrePostObject__ = gmlcount[__yy_gml_array_check_index_set(gmlpos)]), (gmlcount[__yy_gml_array_check_index_set(gmlpos)] = g_yyPrePostObject__ instanceof Long ? gmlcount[__yy_gml_array_check_index_set(gmlpos)].add(1) : ++gmlcount[__yy_gml_array_check_index_set(gmlpos)]), g_yyPrePostObject__;
               var gmlmaxpos = 1;
+              if (yyGetBool(__yy__v1746.gmlfullgame_mode)) {
+                gmlmaxpos = 3;
+              } else {
               var ___sw1450___ = gmlpos;
               var ___swc1451___ = -1;
               if (yyCompareVal(___sw1450___, 1, g_GMLMathEpsilon, false) == 0) {
@@ -80410,6 +80926,7 @@ function gml_Script_s_tag_backups_internal(_inst, _other, argument0) {
                   gmlmaxpos = 2;
                   break;
                 }
+              }
               }
               if (yyfgreaterequal(gmlcount[__yy_gml_array_check_index(gmlpos, gmlcount)], gmlmaxpos)) {
                 ds_map_set(gmlpmap, "backup", true);
@@ -82642,7 +83159,10 @@ function gml_Script_s_str(_inst, _other, argument0) {
     if (yyGetBool(is_undefined(gmltxt))) {
       {
         gml_Script_slog(_inst, _other, yyfplus("@", __yy_gml_errCheck(argument0)));
-        return yyfplus("@", __yy_gml_errCheck(argument0));
+        return String(argument0)
+          .replace(/^(?:ui|short|btn|msg|news|conf)_/i, "")
+          .replace(/_/g, " ")
+          .replace(/([a-z])([A-Z])/g, "$1 $2");
       }
     }
     return string_hash_to_newline(gmltxt);
@@ -82707,7 +83227,10 @@ function gml_Script_s_co_str(_inst, _other, argument0) {
     if (yyGetBool(is_undefined(gmltxt))) {
       {
         gml_Script_slog(_inst, _other, yyfplus("@", __yy_gml_errCheck(argument0)));
-        return yyfplus("@", __yy_gml_errCheck(argument0));
+        return String(argument0)
+          .replace(/^(?:ui|short|btn|msg|news|conf)_/i, "")
+          .replace(/_/g, " ")
+          .replace(/([a-z])([A-Z])/g, "$1 $2");
       }
     }
     return string_hash_to_newline(gmltxt);
@@ -83669,7 +84192,7 @@ function gml_Script_s_get_string_week(_inst, _other, argument0) {
   {
     var hsState = yyInst(_inst, _other, YYASSET_REF(0x00000062));
     if (hsState.gmlhsCareerPending && hsState.gmlhsSeasonActive) {
-      return "HIGH SCHOOL - GAME " + Math.min(6, hsState.gmlhsSeasonWeek + 1);
+      return "HIGH SCHOOL - GAME 1";
     }
     var gmlwk = argument0;
     if (yyfequal(gmlwk, 0)) {
@@ -85807,6 +86330,9 @@ function gml_Script_s_refactor_team_strengths(_inst, _other) {
           if (yyGetBool(yyfgreaterequal(__yy__v1881.gmlop_difficulty, 3)) || yyGetBool(yyfless(__yy__v1881.gmlsuppress_difficulty, 0))) {
             gmlsdrop = 0.8;
           }
+          if (yyGetBool(__yy__v1881.gmlfullgame_mode)) {
+            gmlsdrop = 1.1;
+          }
           var gmlsort_teams = ds_list_create();
           ds_list_copy(gmlsort_teams, __yy__v1881.gmlteamlist);
           gmlsort_teams = gml_Script_s_sort_teams(__yy__v1881, _inst, gmlsort_teams, 2, false);
@@ -85816,6 +86342,9 @@ function gml_Script_s_refactor_team_strengths(_inst, _other) {
               var gmltop_rating = 20;
               if (yyGetBool(irandom(2))) {
                 gmltop_rating = 19;
+              }
+              if (yyGetBool(__yy__v1881.gmlfullgame_mode)) {
+                gmltop_rating = yyGetBool(irandom(2)) ? 17 : 16;
               }
               var gmli = 0;
               for (; yyfless(gmli, ds_list_size(gmlsort_teams)); g_yyPrePostObject__ = gmli, gmli = g_yyPrePostObject__ instanceof Long ? gmli.add(1) : ++gmli, g_yyPrePostObject__) {
@@ -86723,7 +87252,7 @@ function gml_Script_s_set_up_temp_variables(_inst, _other) {
     _inst.gmljobofferdone = false;
     _inst.gmlgamepractice = 0;
     _inst.gmlplayoff_proceed = false;
-    _inst.gmlplayerteamindex = 0;
+    _inst.gmlplayerteamindex = yyGetBool(global.gmlexhibition) ? -1 : 0;
     _inst.gmlteam = __yy_gml_array_check(_inst.gmlteam, 2482654026);
     _inst.gmlteam[__yy_gml_array_check_index_set(0)] = -4;
     _inst.gmlteam[__yy_gml_array_check_index_set(1)] = -4;
@@ -87530,6 +88059,18 @@ function gml_Script_s_set_up_qb_pmap(_inst, _other) {
         if (!__yy__v1917.hasOwnProperty(__yy__v1918)) continue;
         var __yy__v1919 = __yy__v1917[__yy__v1918];
         {
+          var hsCareerPlayerMap = -4;
+          if (__yy__v1919.gmlhsCareerSetupComplete) {
+            var hsPosition =
+              __yy__v1919.gmlhsPlayerPosition === "RB" ? 2 : 1;
+            hsCareerPlayerMap = gml_Script_s_get_player_by_position_from_roster(
+              __yy__v1919,
+              _inst,
+              hsPosition,
+              1,
+              __yy__v1919.gmlroster
+            );
+          }
           var gmli = 0;
           for (; yyfless(gmli, ds_list_size(__yy__v1919.gmlroster)); g_yyPrePostObject__ = gmli, gmli = g_yyPrePostObject__ instanceof Long ? gmli.add(1) : ++gmli, g_yyPrePostObject__) {
             {
@@ -87540,6 +88081,8 @@ function gml_Script_s_set_up_qb_pmap(_inst, _other) {
                       __yy__v1919.gmlhsPlayerPosition === "RB") {
                     continue;
                   }
+                  if (__yy__v1919.gmlhsCareerSetupComplete &&
+                      gmlpmap !== hsCareerPlayerMap) continue;
                   var hsRating = __yy__v1919.gmlhsCareerSetupComplete ?
                     Math.min(3, Math.max(0.5,
                       Number(__yy__v1919.gmlhsCollegeStarRating ||
@@ -87565,12 +88108,14 @@ function gml_Script_s_set_up_qb_pmap(_inst, _other) {
                   ds_map_set(gmlpmap, "skin", __yy__v1919.gmlmy_skin);
                   ds_map_set(gmlpmap, "face_x", __yy__v1919.gmlmyface_x);
                   ds_map_set(gmlpmap, "face_y", __yy__v1919.gmlmyface_y);
+                  __yy__v1919.gmlplayer_profile = gmlpmap;
                   return;
                 }
               }
               if (__yy__v1919.gmlhsCareerSetupComplete &&
                   __yy__v1919.gmlhsPlayerPosition === "RB" &&
                   yyfequal(ds_map_find_value(gmlpmap, "position"), 2)) {
+                if (gmlpmap !== hsCareerPlayerMap) continue;
                 var hsRating = Math.min(3, Math.max(0.5,
                   Number(__yy__v1919.gmlhsCollegeStarRating ||
                     __yy__v1919.gmlhsStartRating) || 1));
@@ -87596,6 +88141,7 @@ function gml_Script_s_set_up_qb_pmap(_inst, _other) {
                 ds_map_set(gmlpmap, "skin", __yy__v1919.gmlmy_skin);
                 ds_map_set(gmlpmap, "face_x", __yy__v1919.gmlmyface_x);
                 ds_map_set(gmlpmap, "face_y", __yy__v1919.gmlmyface_y);
+                __yy__v1919.gmlplayer_profile = gmlpmap;
                 return;
               }
             }
@@ -89423,6 +89969,11 @@ function gml_GlobalScript_s_do_prematch_dilemma_qb(_inst, _other) {
 }
 function gml_Script_s_do_prematch_dilemma_qb(_inst, _other) {
   {
+    var hsState = yyInst(_inst, _other, YYASSET_REF(0x00000062));
+    if (hsState.gmlhsCareerPending) {
+      hsState.gmlprematch_dilemma_done = true;
+      return false;
+    }
     {
       var __yy__v1989 = GetWithArray(YYASSET_REF(0x00000062));
       for (var __yy__v1990 in __yy__v1989) {
@@ -90817,12 +91368,6 @@ function gml_Script_s_startup_handle_saved_game(_inst, _other) {
         gml_Script_slog(_inst, _other, yyfplus(yyfplus("obj_master: s_loadgame(", __yy_gml_errCheck(gmlsavename)), ")"));
         gml_Script_s_loadgame(_inst, _other, gmlsavename);
         _inst.gmlfirst_load = true;
-        if (yyGetBool(1) && yyGetBool(yyfequal(_inst.gmlqb_mode, 1))) {
-          {
-            file_delete(gmlsavename);
-            gml_Script_s_create_new_save(_inst, _other);
-          }
-        }
       }
     } else {
       {
@@ -99902,6 +100447,7 @@ function gml_Object_obj_master_Step_0(_inst, _other) {
     gml_Script_s_update_poki_scaling(_inst, _other);
   }
   gml_Script_s_update_gamepad(_inst, _other);
+  gml_Script_s_fullgame_update_sub_button(_inst, _other);
   if (yyGetBool(global.gmldebug)) {
     gml_Script_s_debug_window_size(_inst, _other);
   }
@@ -100622,10 +101168,10 @@ function gml_Object_obj_controller_Create_0(_inst, _other) {
   var hsCareerState = yyInst(_inst, _other, YYASSET_REF(0x00000062));
   if (hsCareerState.gmlhsCareerPending && hsCareerState.gmlhsLiveMatchPending) {
     var hsSchoolTeamName = hsCareerState.gmlhsSchool === "Hampshire High" ?
-      "Hampshire Hawks" : "Lavticit Lions";
+      "MSJ" : "LMS";
     var hsRivalTeamName = hsGetOpponentName(hsCareerState);
-    var hsSchoolTla = hsCareerState.gmlhsSchool === "Hampshire High" ? "HAW" : "LIO";
-    var hsRivalTla = hsCareerState.gmlhsSchool === "Hampshire High" ? "LIO" : "HAW";
+    var hsSchoolTla = hsCareerState.gmlhsSchool === "Hampshire High" ? "MSJ" : "LMS";
+    var hsRivalTla = hsCareerState.gmlhsSchool === "Hampshire High" ? "LMS" : "MSJ";
     var hsOpponentIndex = !yyGetBool(_inst.gmlhuman_team) ? 1 : 0;
     _inst.gmlteam[__yy_gml_array_check_index_set(_inst.gmlhuman_team)] =
       hsCreateMatchTeam(
@@ -101520,8 +102066,9 @@ function gml_Object_obj_player_Step_0(_inst, _other) {
   if (yyGetBool(_inst.gmloffense)) {
     var hsCareer = yyInst(_inst, _other, YYASSET_REF(0x00000062));
     var hsBall = yyInst(_inst, _other, gmlball);
-    var rbCareerMode = hsCareer.gmlhsPlayerPosition === "RB" &&
-      (hsCareer.gmlhsLiveMatchPending || hsCareer.gmlhsCareerComplete);
+    var hsCareerActive = hsCareerInputActive(hsCareer);
+    var rbCareerMode = hsCareerActive &&
+      hsCareer.gmlhsPlayerPosition === "RB";
     if (rbCareerMode && _inst.gmlposition === 1 &&
         hsBall.gmlholder === _inst.id && hsBall.gmlstate === 1) {
       var hsRunningBack = -4;
@@ -101529,25 +102076,30 @@ function gml_Object_obj_player_Step_0(_inst, _other) {
       for (var hsPlayerId in hsPlayers) {
         if (!hsPlayers.hasOwnProperty(hsPlayerId)) continue;
         var hsPlayer = hsPlayers[hsPlayerId];
-        if (hsPlayer.gmloffense && hsPlayer.gmlposition === 2) {
+        if (hsPlayer.gmloffense && hsPlayer.gmlposition === 2 &&
+            hsPlayer.gmlpmap === hsCareer.gmlplayer_profile) {
           hsRunningBack = hsPlayer.id;
           break;
         }
       }
-      if (hsRunningBack !== -4) {
+      if (hsRunningBack !== -4 && irandom(99) < 70) {
         hsBall.gmlstate = 19;
         yyInst(_inst, _other, YYASSET_REF(0x00000069)).gmlplay_start =
           g_pBuiltIn.get_current_time();
         yyInst(_inst, _other, YYASSET_REF(0x00000069)).gmlrunning_play = true;
         gml_Script_s_sound_throw(_inst, _other);
       } else {
-        gml_Script_s_check_human_control(_inst, _other);
+        gml_Script_s_qb_run(hsBall, _inst, true);
       }
-    } else {
+    } else if (!hsCareerActive) {
       gml_Script_s_check_human_control(_inst, _other);
     }
   }
   gml_Script_s_get_destination(_inst, _other);
+  hsApplyCareerArrowMovement(
+    _inst,
+    yyInst(_inst, _other, YYASSET_REF(0x00000062))
+  );
   gml_Script_s_check_tackling(_inst, _other);
   gml_Script_s_check_dive(_inst, _other);
 }
@@ -104922,7 +105474,8 @@ function gml_Object_obj_home_Create_0(_inst, _other) {
   gml_Script_slog(_inst, _other, "------> Create: obj_home");
   gml_Script_s_update_game_title(_inst, _other);
   var hsHomeState = yyInst(_inst, _other, YYASSET_REF(0x00000062));
-  if (!hsHomeState.gmlhsCareerPending || !hsHomeState.gmlhsSeasonActive) {
+  if (!hsHomeState.gmlhsCareerPending ||
+      (!hsHomeState.gmlhsSeasonActive && !hsHomeState.gmlhsOffersReady)) {
     gml_Script_s_competitions_status_update(_inst, _other);
   }
   gml_Script__poki_gameplay_start(_inst, _other);
@@ -104945,10 +105498,9 @@ function gml_Object_obj_home_Create_0(_inst, _other) {
       return;
     }
   }
-  if (yyGetBool(gml_Script_s_resolve_non_champ_conferences(_inst, _other))) {
-    {
-      return;
-    }
+  if (!hsHomeState.gmlhsCareerPending &&
+      yyGetBool(gml_Script_s_resolve_non_champ_conferences(_inst, _other))) {
+    return;
   }
   if (!yyGetBool(instance_exists(YYASSET_REF(0x00000068)))) {
     {
@@ -106184,10 +106736,10 @@ function gml_Object_obj_prematch_Create_0(_inst, _other) {
   _inst.gmlteam1 = yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlteam[__yy_gml_array_check_index(1, yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlteam)];
   if (hsCareerState.gmlhsCareerPending && hsCareerState.gmlhsLiveMatchPending) {
     var schoolName = hsCareerState.gmlhsSchool === "Hampshire High" ?
-      "Hampshire Hawks" : "Lavticit Lions";
+      "MSJ" : "LMS";
     var rivalName = hsGetOpponentName(hsCareerState);
-    var schoolTla = hsCareerState.gmlhsSchool === "Hampshire High" ? "HAW" : "LIO";
-    var rivalTla = hsCareerState.gmlhsSchool === "Hampshire High" ? "LIO" : "HAW";
+    var schoolTla = hsCareerState.gmlhsSchool === "Hampshire High" ? "MSJ" : "LMS";
+    var rivalTla = hsCareerState.gmlhsSchool === "Hampshire High" ? "LMS" : "MSJ";
     if (hsCareerState.gmlplayerteamindex === 0) {
       _inst.gmlteam0 = hsCreateMatchTeam(_inst.gmlteam0, schoolName, schoolTla);
       _inst.gmlteam1 = hsCreateMatchTeam(_inst.gmlteam1, rivalName, rivalTla);
@@ -106339,6 +106891,10 @@ function gml_Object_obj_prematch_Create_0(_inst, _other) {
       yyInst(_inst, _other, 100394).gmlbody_type = gml_Script_s_get_team_body_type(_inst, _other, _inst.gmlteam1, _inst.gmldefense[__yy_gml_array_check_index(1, _inst.gmldefense)], _inst.gmloffense[__yy_gml_array_check_index(1, _inst.gmloffense)]);
     }
   }
+  if (hsCareerState.gmlhsCareerPending) {
+    _inst.gmlrecord[__yy_gml_array_check_index_set(0)] = "";
+    _inst.gmlrecord[__yy_gml_array_check_index_set(1)] = "";
+  }
   {
     var __yy__v2374 = GetWithArray(YYASSET_REF(0x00000062));
     for (var __yy__v2375 in __yy__v2374) {
@@ -106383,7 +106939,8 @@ function gml_Object_obj_prematch_Create_0(_inst, _other) {
   yyInst(_inst, _other, 100397).gmlimage_num = yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlop_ball;
   yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlsim_action = false;
   yyInst(_inst, _other, 100400).visible = true;
-  yyInst(_inst, _other, 100401).visible = true;
+  yyInst(_inst, _other, 100401).visible =
+    !hsCareerState.gmlhsCareerPending;
   var gmlrest_text_short = "";
   var gmlrest_text_long = "";
   {
@@ -106594,10 +107151,12 @@ function gml_Object_obj_helmet_PreCreate_0(_inst, _other) {
   _inst.gmlcol_skin_b = 0;
 }
 function gml_Object_obj_postmatch_Create_0(_inst, _other) {
+  var hsState = yyInst(_inst, _other, YYASSET_REF(0x00000062));
   if (yyGetBool(!yyGetBool(global.gmlpoki)) || yyGetBool(global.gmlpoki_done_post_match_reward)) {
     layer_set_visible(layer_get_id("Poki_Layer"), false);
   }
-  if (yyGetBool(gml_Script_s_is_co_mode(_inst, _other))) {
+  if (!hsState.gmlhsCareerPending &&
+      yyGetBool(gml_Script_s_is_co_mode(_inst, _other))) {
     {
       gml_Script_s_co_division_create(_inst, _other, 100485, gml_Script_s_get_my_conference_uid(_inst, _other), gml_Script_s_get_my_division(_inst, _other));
       gml_Script_s_co_subdivision_create(_inst, _other, gml_Script_s_get_object_data(_inst, _other, 100484), gml_Script_s_get_my_conference_data(_inst, _other), 13);
@@ -106635,13 +107194,15 @@ function gml_Object_obj_postmatch_Create_0(_inst, _other) {
         }
       }
     }
-  } else {
+  } else if (!hsState.gmlhsCareerPending) {
     {
       gml_Script_s_populate_division(_inst, _other, 100485, yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlmyconference, yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlmydivision);
       yyInst(_inst, _other, 100484).gmlconference = yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlmyconference;
     }
   }
-  gml_Script_s_check_for_news(_inst, _other);
+  if (!hsState.gmlhsCareerPending) {
+    gml_Script_s_check_for_news(_inst, _other);
+  }
   yyInst(_inst, _other, 100479).visible = false;
   yyInst(_inst, _other, 100481).visible = false;
   yyInst(_inst, _other, 100488).visible = false;
@@ -106697,6 +107258,7 @@ function gml_Object_obj_postmatch_Create_0(_inst, _other) {
         }
       }
     }
+    hsConfigurePostmatch(_inst, _other, hsState);
   }
 }
 function gml_Object_obj_postmatch_Step_0(_inst, _other) {
@@ -106767,10 +107329,17 @@ function gml_Object_obj_postmatch_Step_0(_inst, _other) {
     case 2: {
       if (!yyGetBool(instance_exists(YYASSET_REF(0x00000066)))) {
         {
-          yyInst(_inst, _other, 100479).visible = true;
-          yyInst(_inst, _other, 100481).visible = true;
-          if (!yyGetBool(global.gmlpoki)) {
-            yyInst(_inst, _other, 100488).visible = true;
+          var hsState = yyInst(_inst, _other, YYASSET_REF(0x00000062));
+          if (hsState.gmlhsCareerPending) {
+            yyInst(_inst, _other, 100479).visible = true;
+            yyInst(_inst, _other, 100479).gmlactive = true;
+            hsConfigurePostmatch(_inst, _other, hsState);
+          } else {
+            yyInst(_inst, _other, 100479).visible = true;
+            yyInst(_inst, _other, 100481).visible = true;
+            if (!yyGetBool(global.gmlpoki)) {
+              yyInst(_inst, _other, 100488).visible = true;
+            }
           }
         }
       }
@@ -108821,6 +109390,9 @@ function gml_Object_obj_staffprofile_Step_0(_inst, _other) {
   if (!yyGetBool(ds_exists(_inst.gmlpmap, 1))) {
     return;
   }
+  if (yyfequal(ds_map_find_value(_inst.gmlpmap, "position"), 100)) {
+    return;
+  }
   if (yyGetBool(is_undefined(ds_map_find_value(_inst.gmlpmap, "xp_gain")))) {
     return;
   }
@@ -108898,7 +109470,11 @@ function gml_Object_obj_staffprofile_KeyPress_90(_inst, _other) {
 }
 function gml_Object_obj_roster_Create_0(_inst, _other) {
   gml_Script_s_tag_backups(_inst, _other);
-  yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlroster = gml_Script_s_sort_players(_inst, _other, yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlroster, 4);
+  var fullgame_roster = yyGetBool(yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlfullgame_mode);
+  if (!fullgame_roster) {
+    yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlroster = gml_Script_s_sort_players(_inst, _other, yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlroster, 4);
+  }
+  yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlroster_scroll_rows = 0;
   if (yyGetBool(yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlqb_mode)) {
     {
       yyInst(_inst, _other, 100493).visible = false;
@@ -108910,6 +109486,11 @@ function gml_Object_obj_roster_Create_0(_inst, _other) {
   var gmlsize = ds_list_size(yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlroster);
   var gmlmax_roster = gml_Script_s_get_roster_cap(_inst, _other);
   var gmlcards_per_row = yyfdivide(__yy_gml_errCheck(gmlmax_roster), 2);
+  if (fullgame_roster) {
+    gmlcards_per_row = 5;
+    gmlgap = 8;
+    gmlbuf = 0;
+  }
   if (yyflessequal(gmlsize, 10)) {
     {
       gmlcards_per_row = 5;
@@ -108941,8 +109522,9 @@ function gml_Object_obj_roster_Create_0(_inst, _other) {
   var gmluniform = instance_create_layer(0, 0, "Instances", YYASSET_REF(0x00000085));
   yyInst(_inst, _other, gmluniform).visible = false;
   gml_Script_s_load_uniform_file2(_inst, _other, yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlmyteam_id, gmluniform, 0, "");
+  var gmlprofile_count = fullgame_roster ? Math.min(gmlsize, 10) : gmlsize;
   var gmlr = 0;
-  for (; yyfless(gmlr, gmlsize); g_yyPrePostObject__ = gmlr, gmlr = g_yyPrePostObject__ instanceof Long ? gmlr.add(1) : ++gmlr, g_yyPrePostObject__) {
+  for (; yyfless(gmlr, gmlprofile_count); g_yyPrePostObject__ = gmlr, gmlr = g_yyPrePostObject__ instanceof Long ? gmlr.add(1) : ++gmlr, g_yyPrePostObject__) {
     {
       _inst.gmlroster_profile = __yy_gml_array_check(_inst.gmlroster_profile, 917944806);
       _inst.gmlroster_profile[__yy_gml_array_check_index_set(gmlr)] = instance_create_layer(0, 0, "Instances", YYASSET_REF(0x00000032));
@@ -108956,16 +109538,28 @@ function gml_Object_obj_roster_Create_0(_inst, _other) {
           gml_Script_s_set_up_uniform_profile(__yy__v2439, _inst, gmluniform);
         }
       }
-      yyInst(_inst, _other, _inst.gmlroster_profile[__yy_gml_array_check_index(gmlr, _inst.gmlroster_profile)]).x = yyfminus(__yy_gml_errCheck(gmlpx), __yy_gml_errCheck(yyftime(__yy_gml_errCheck(gmlpw), 0.5)));
-      yyInst(_inst, _other, _inst.gmlroster_profile[__yy_gml_array_check_index(gmlr, _inst.gmlroster_profile)]).y = yyfminus(__yy_gml_errCheck(gmlpy), __yy_gml_errCheck(yyftime(__yy_gml_errCheck(yyInst(_inst, _other, _inst.gmlroster_profile[__yy_gml_array_check_index(0, _inst.gmlroster_profile)]).sprite_height), 0.5)));
-      gmlpx = yyfplus(gmlpx, gmlpw);
-      if (yyfequal(gmlr, yyfminus(__yy_gml_errCheck(gmlcards_per_row), 1))) {
-        {
-          var gmlsz = yyfminus(__yy_gml_errCheck(gmlsize), __yy_gml_errCheck(gmlcards_per_row));
-          gmlpx = yyftime(__yy_gml_errCheck(g_pBuiltIn.room_width), 0.5);
-          gmlpx = yyfminus(gmlpx, yyftime(__yy_gml_errCheck(yyfminus(__yy_gml_errCheck(gmlsz), 1)), __yy_gml_errCheck(yyftime(__yy_gml_errCheck(gmlpw), 0.5))));
-          gmlpx = yyfplus(gmlpx, gmlbuf);
-          gmlpy = yyfplus(gmlpy, 88);
+      if (fullgame_roster) {
+        var row = Math.floor(gmlr / 5);
+        var column = gmlr % 5;
+        var row_size = Math.min(5, gmlsize - row * 5);
+        var row_start_x = (g_pBuiltIn.room_width - (row_size - 1) * gmlpw) * 0.5;
+        var profile = yyInst(_inst, _other, _inst.gmlroster_profile[__yy_gml_array_check_index(gmlr, _inst.gmlroster_profile)]);
+        profile.x = row_start_x + column * gmlpw - gmlpw * 0.5;
+        profile.y = g_pBuiltIn.room_height * 0.5 - 44 + row * 88 - yyInst(_inst, _other, YYASSET_REF(0x00000062)).gmlroster_scroll_rows * 88 - profile.sprite_height * 0.5;
+        profile.visible = row < 2;
+        profile.gmlactive = row < 2;
+      } else {
+        yyInst(_inst, _other, _inst.gmlroster_profile[__yy_gml_array_check_index(gmlr, _inst.gmlroster_profile)]).x = yyfminus(__yy_gml_errCheck(gmlpx), __yy_gml_errCheck(yyftime(__yy_gml_errCheck(gmlpw), 0.5)));
+        yyInst(_inst, _other, _inst.gmlroster_profile[__yy_gml_array_check_index(gmlr, _inst.gmlroster_profile)]).y = yyfminus(__yy_gml_errCheck(gmlpy), __yy_gml_errCheck(yyftime(__yy_gml_errCheck(yyInst(_inst, _other, _inst.gmlroster_profile[__yy_gml_array_check_index(0, _inst.gmlroster_profile)]).sprite_height), 0.5)));
+        gmlpx = yyfplus(gmlpx, gmlpw);
+        if (yyfequal(gmlr, yyfminus(__yy_gml_errCheck(gmlcards_per_row), 1))) {
+          {
+            var gmlsz = yyfminus(__yy_gml_errCheck(gmlsize), __yy_gml_errCheck(gmlcards_per_row));
+            gmlpx = yyftime(__yy_gml_errCheck(g_pBuiltIn.room_width), 0.5);
+            gmlpx = yyfminus(gmlpx, yyftime(__yy_gml_errCheck(yyfminus(__yy_gml_errCheck(gmlsz), 1)), __yy_gml_errCheck(yyftime(__yy_gml_errCheck(gmlpw), 0.5))));
+            gmlpx = yyfplus(gmlpx, gmlbuf);
+            gmlpy = yyfplus(gmlpy, 88);
+          }
         }
       }
     }
@@ -108984,6 +109578,9 @@ function gml_Object_obj_roster_Create_0(_inst, _other) {
           }
         }
         yyInst(_inst, _other, 100501).gmltext = yyfplus(yyfplus(yyfplus(yyfplus(__yy_gml_errCheck(gml_Script_s_str(__yy__v2442, _inst, "ui_Players")), " "), __yy_gml_errCheck(string(gmlsize))), " / "), __yy_gml_errCheck(string(gmllimit)));
+        if (fullgame_roster) {
+          yyInst(_inst, _other, 100501).gmltext += " - PAGE 1 / " + string(Math.ceil(gmlsize / 10));
+        }
         if (yyGetBool(__yy__v2442.gmlroster_from_store)) {
           yyInst(_inst, _other, 100491).gmlimage = YYASSET_REF(0x0100008e);
         } else {
@@ -109002,6 +109599,20 @@ function gml_Object_obj_roster_Create_0(_inst, _other) {
       }
     }
   }
+  if (fullgame_roster && gmlsize > 10) {
+    _inst.gmlroster_page_prev = instance_create_layer(108, 232, "Instances", YYASSET_REF(0x00000023));
+    var previous_button = yyInst(_inst, _other, _inst.gmlroster_page_prev);
+    previous_button.gmltext = "PREV";
+    previous_button.gmlonClickAction = gml_Script_s_fullgame_roster_previous_page;
+    previous_button.gmlgp_allowed = 1;
+    previous_button.gmlactive = false;
+    _inst.gmlroster_page_next = instance_create_layer(180, 232, "Instances", YYASSET_REF(0x00000023));
+    var next_button = yyInst(_inst, _other, _inst.gmlroster_page_next);
+    next_button.gmltext = "NEXT";
+    next_button.gmlonClickAction = gml_Script_s_fullgame_roster_next_page;
+    next_button.gmlgp_allowed = 1;
+    next_button.gmlactive = true;
+  }
   if (yyGetBool(global.gmlexhibition)) {
     {
       gml_Script_rm_roster_exhibition_create(_inst, _other);
@@ -109009,6 +109620,82 @@ function gml_Object_obj_roster_Create_0(_inst, _other) {
   }
   gml_Script_s_check_intro_rm_roster(_inst, _other);
   gml_Script_s_check_intro(_inst, _other);
+}
+function gml_Script_s_fullgame_roster_change_page(_inst, _other, direction) {
+  var state = yyInst(_inst, _other, YYASSET_REF(0x00000062));
+  var roster_size = ds_list_size(state.gmlroster);
+  var total_pages = Math.ceil(roster_size / 10);
+  var max_rows = Math.max(0, Math.ceil(roster_size / 5) - 2);
+  var page = Math.ceil(state.gmlroster_scroll_rows / 2);
+  page = Math.max(0, Math.min(total_pages - 1, page + direction));
+  state.gmlroster_scroll_request = Math.min(page * 2, max_rows);
+}
+function gml_Script_s_fullgame_roster_previous_page(_inst, _other) {
+  gml_Script_s_fullgame_roster_change_page(_inst, _other, -1);
+}
+function gml_Script_s_fullgame_roster_next_page(_inst, _other) {
+  gml_Script_s_fullgame_roster_change_page(_inst, _other, 1);
+}
+function gml_Object_obj_roster_Step_0(_inst, _other) {
+  var state = yyInst(_inst, _other, YYASSET_REF(0x00000062));
+  if (!yyGetBool(state.gmlfullgame_mode) || ds_list_size(state.gmlroster) <= 10) {
+    return;
+  }
+  var max_rows = Math.max(0, Math.ceil(ds_list_size(state.gmlroster) / 5) - 2);
+  var current_scroll = state.gmlroster_scroll_rows;
+  var scroll = current_scroll;
+  var total_pages = Math.ceil(ds_list_size(state.gmlroster) / 10);
+  if (typeof state.gmlroster_scroll_request === "number") {
+    scroll = state.gmlroster_scroll_request;
+    delete state.gmlroster_scroll_request;
+  } else {
+    var page = Math.ceil(scroll / 2);
+    if (mouse_wheel_down() || keyboard_check_pressed(40)) {
+      page = Math.min(total_pages - 1, page + 1);
+    } else if (mouse_wheel_up() || keyboard_check_pressed(38)) {
+      page = Math.max(0, page - 1);
+    }
+    scroll = Math.min(page * 2, max_rows);
+  }
+  if (scroll == current_scroll) {
+    return;
+  }
+  state.gmlroster_scroll_rows = scroll;
+  var roster_size = ds_list_size(state.gmlroster);
+  var card_step = sprite_get_width(YYASSET_REF(0x010000ac)) + 8;
+  for (var i = 0; i < 10; i++) {
+    var profile_id = _inst.gmlroster_profile[__yy_gml_array_check_index(i, _inst.gmlroster_profile)];
+    if (!instance_exists(profile_id)) {
+      continue;
+    }
+    var profile = yyInst(_inst, _other, profile_id);
+    var roster_index = scroll * 5 + i;
+    if (roster_index >= roster_size) {
+      profile.visible = false;
+      profile.gmlactive = false;
+      continue;
+    }
+    profile.gmlpmap = ds_list_find_value(state.gmlroster, roster_index);
+    profile.gmlold_condition = -99;
+    profile.gmlclicked = false;
+    profile.gmlhover = false;
+    var row = Math.floor(i / 5);
+    var column = i % 5;
+    var row_size = Math.min(5, roster_size - scroll * 5 - row * 5);
+    var row_start_x = (g_pBuiltIn.room_width - (row_size - 1) * card_step) * 0.5;
+    profile.x = row_start_x + column * card_step - card_step * 0.5;
+    profile.y = g_pBuiltIn.room_height * 0.5 - 44 + row * 88 - profile.sprite_height * 0.5;
+    profile.visible = true;
+    profile.gmlactive = true;
+  }
+  page = Math.ceil(scroll / 2);
+  yyInst(_inst, _other, 100501).gmltext = gml_Script_s_str(_inst, _other, "ui_Players") + " " + string(roster_size) + " / 105 - PAGE " + string(page + 1) + " / " + string(total_pages);
+  if (instance_exists(_inst.gmlroster_page_prev)) {
+    yyInst(_inst, _other, _inst.gmlroster_page_prev).gmlactive = page > 0;
+  }
+  if (instance_exists(_inst.gmlroster_page_next)) {
+    yyInst(_inst, _other, _inst.gmlroster_page_next).gmlactive = page < total_pages - 1;
+  }
 }
 function gml_Object_obj_roster_PreCreate_0(_inst, _other) {
   event_inherited(_inst, _other);
@@ -109347,7 +110034,7 @@ function gml_RoomCC_rm_master_18_PreCreate(_inst, _other) {
   _inst.gmltext = gml_Script_s_str(_inst, _inst, "ui_Load");
 }
 function gml_RoomCC_rm_master_20_Create(_inst, _other) {
-  instance_destroy(_inst);
+  return;
 }
 function gml_RoomCC_rm_master_20_PreCreate(_inst, _other) {
   _inst.gmltext = gml_Script_s_str(_inst, _inst, "btn_ExhibitionGame");
@@ -110533,6 +111220,10 @@ function gml_RoomCC_rm_pre_match_12_PreCreate(_inst, _other) {
   _inst.gmltext = yyfequal(_inst.id, 100401) ? "Sim Season" : "Sim Week";
   _inst.gmlcontinue_icon = YYASSET_REF(0x01000093);
   _inst.gmlonClickAction = kgml_Script_btn_click_SimGame;
+  var hsState = yyInst(_inst, _other, YYASSET_REF(0x00000062));
+  if (_inst.id === 100401 && hsState.gmlhsCareerPending) {
+    _inst.visible = false;
+  }
 }
 function gml_RoomCC_rm_pre_match_14_Create(_inst, _other) {
   _inst.visible = false;
@@ -110656,7 +111347,18 @@ function gml_RoomCC_rm_profile_player_30_PreCreate(_inst, _other) {
   _inst.gmlonClickAction = kgml_Script_btn_click_Profile_Stats;
 }
 function gml_RoomCC_rm_profile_player_31_PreCreate(_inst, _other) {
-  _inst.gmltext = gml_Script_s_str(_inst, _inst, "ui_Rest");
+  var fullGameState = yyInst(_inst, _other, YYASSET_REF(0x00000062));
+  if (yyGetBool(fullGameState.gmlfullgame_mode) &&
+      yyGetBool(ds_exists(fullGameState.gmlplayer_profile, 1))) {
+    _inst.gmltext = gml_Script_s_str(
+      _inst,
+      _other,
+      yyGetBool(ds_map_find_value(fullGameState.gmlplayer_profile, "manual_backup")) ?
+        "ui_Unbench" : "ui_Bench"
+    );
+  } else {
+    _inst.gmltext = gml_Script_s_str(_inst, _other, "ui_Rest");
+  }
   _inst.gmlonClickAction = kgml_Script_btn_click_Profile_Rest;
 }
 function gml_RoomCC_rm_profile_player_32_PreCreate(_inst, _other) {
@@ -110824,23 +111526,31 @@ function gml_RoomCC_rm_profile_staff_22_PreCreate(_inst, _other) {
 }
 function gml_Room_rm_post_match_Create(_inst, _other) {
   layer_background_blend(layer_background_get_id(layer_get_id("Background")), global.gmlc_background);
+  var hsState = yyInst(_inst, _other, YYASSET_REF(0x00000062));
+  if (hsState.gmlhsCareerPending) {
+    hsConfigurePostmatch(_inst, _other, hsState);
+  }
 }
 function gml_RoomCC_rm_post_match_0_PreCreate(_inst, _other) {
-  var hsState = yyInst(_inst, _other, YYASSET_REF(0x00000062));
-  _inst.gmltext = hsState.gmlhsCareerPending && hsState.gmlhsSeasonActive ?
-    "CONTINUE SEASON" : gml_Script_s_str(_inst, _inst, "ui_Continue");
+  _inst.gmltext = gml_Script_s_str(_inst, _inst, "ui_Continue");
   _inst.gmlonClickAction = kgml_Script_s_do_postmatch_dilemma;
 }
 function gml_RoomCC_rm_post_match_1_PreCreate(_inst, _other) {
   _inst.gmlonClickAction = kgml_Script_btn_click_League;
   var hsState = yyInst(_inst, _other, YYASSET_REF(0x00000062));
+  if (hsState.gmlhsCareerPending) {
+    _inst.visible = false;
+    _inst.gmlactive = false;
+    _inst.gmltext = "";
+    return;
+  }
   _inst.gmltext = hsState.gmlhsCareerPending && hsState.gmlhsSeasonActive ?
     "SEASON" : gml_Script_s_str(_inst, _inst, "ui_Results");
 }
 function gml_RoomCC_rm_post_match_2_PreCreate(_inst, _other) {
   var hsState = yyInst(_inst, _other, YYASSET_REF(0x00000062));
   _inst.gmltext = hsState.gmlhsCareerPending && hsState.gmlhsSeasonActive ?
-    "HIGH SCHOOL GAME " + Math.min(6, hsState.gmlhsSeasonWeek + 1) + " FINAL" :
+    "HIGH SCHOOL GAME 1 FINAL" :
     gml_Script_s_str(_inst, _inst, "ui_Result");
 }
 function gml_RoomCC_rm_post_match_4_PreCreate(_inst, _other) {
